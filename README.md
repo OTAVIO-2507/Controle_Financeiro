@@ -3,7 +3,7 @@ Uma aplicação web para gerenciar e controlar as finanças pessoais. O projeto 
 
 ## 🌐 Visualize o Projeto:
 
-**[Ver Projeto Online](http://controle_financeiro.io/)**
+**[Ver Projeto Online](https://otavio-2507.github.io/Controle_Financeiro/)**
 
 ## 🛠️ Tecnologias Utilizadas
 O projeto foi construído com as seguintes ferramentas e tecnologias:
