@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle Financeiro</title>
+    <link rel="icon" type="image/svg+xml" href="">
+    <link rel="stylesheet" href="src/style.css">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        background: '#f8fafc',
+                        glass: {
+                            100: 'rgba(255, 255, 255, 0.7)',
+                            200: 'rgba(255, 255, 255, 0.5)',
+                            300: 'rgba(255, 255, 255, 0.3)',
+                        },
+                        primary: '#facc15',
+                        accent: '#10b981',
+                        success: '#22c55e',
+                        danger: '#ef4444',
+                        text: {
+                            main: '#0f172a',
+                            muted: '#64748b'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="style.css">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body
+    class="bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 antialiased font-sans min-h-screen relative overflow-x-hidden transition-colors duration-300">
+    <div id="app" class="p-4 md:p-8">
+        <!-- Top Navbar Header -->
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+            <div class="flex items-center gap-2">
+                <div class="bg-primary/20 p-2 rounded-xl">
+                    <i data-lucide="wallet" class="w-6 h-6 text-yellow-600 dark:text-yellow-400"></i>
+                </div>
+                <span class="text-xl font-bold tracking-tight text-slate-800 dark:text-slate-100">Controle Financeiro</span>
+            </div>
+
+            <div
+                class="flex bg-white/40 dark:bg-slate-800/40 backdrop-blur-md border border-white/60 dark:border-slate-700/60 rounded-full p-1.5 shadow-sm">
+                <button id="nav-dashboard"
+                    class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-700 rounded-full text-sm font-semibold shadow-sm text-slate-800 dark:text-slate-100 transition-colors">
+                    <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Dashboard
+                </button>
+                <button id="nav-goals"
+                    class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors">
+                    <i data-lucide="check-circle-2" class="w-4 h-4"></i> Metas
+                </button>
+                <button id="nav-config"
+                    class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors">
+                    <i data-lucide="cog" class="w-4 h-4"></i> Config
+                </button>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <button id="nav-theme"
+                    class="p-2.5 bg-white/50 dark:bg-slate-800/50 backdrop-blur-md rounded-full border border-white/60 dark:border-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-white/80 dark:hover:bg-slate-700 transition-all">
+                    <i id="theme-icon" data-lucide="moon" class="w-5 h-5"></i>
+                </button>
+                <button id="nav-profile"
+                    class="p-2.5 bg-white/50 dark:bg-slate-800/50 backdrop-blur-md rounded-full border border-white/60 dark:border-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-white/80 dark:hover:bg-slate-700 transition-all">
+                    <i data-lucide="user" class="w-5 h-5"></i>
+                </button>
+                <button id="nav-logout"
+                    class="p-2.5 bg-white/50 dark:bg-slate-800/50 backdrop-blur-md rounded-full border border-white/60 dark:border-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-white/80 dark:hover:bg-slate-700 hover:text-danger transition-all">
+                    <i data-lucide="log-out" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Welcome Title -->
+        <div class="mb-8">
+            <h1 class="text-4xl lg:text-5xl font-light text-slate-900 dark:text-slate-100 mb-2">
+                Bem-vindo de volta, <span id="user-name-display" class="font-semibold">Usuário</span>
+            </h1>
+            <p class="text-slate-500 dark:text-slate-400">Seu painel de controle financeiro - monitorando gastos, metas
+                e economia</p>
+        </div>
+
+        <main id="view-dashboard" class="max-w-[1400px] mx-auto space-y-6">
+            <!-- SummaryCards -->
+            <div id="summary-cards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"></div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 space-y-6">
+                    <!-- Charts -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="card h-96 flex flex-col">
+                            <div class="flex items-center justify-between mb-6">
+                                <div class="flex items-center gap-2 text-slate-700 dark:text-slate-200">
+                                    <i data-lucide="pie-chart" class="w-5 h-5 text-emerald-500"></i>
+                                    <h3 class="font-semibold">Gastos por Categoria</h3>
+                                </div>
+                                <button class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><i
+                                        data-lucide="more-horizontal" class="w-5 h-5"></i></button>
+                            </div>
+                            <div class="flex-1 w-full min-h-0 relative">
+                                <canvas id="pieChart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="card h-96 flex flex-col">
+                            <div class="flex items-center justify-between mb-6">
+                                <div class="flex items-center gap-2 text-slate-700 dark:text-slate-200">
+                                    <i data-lucide="bar-chart-3" class="w-5 h-5 text-blue-500"></i>
+                                    <h3 class="font-semibold">Receitas vs Despesas</h3>
+                                </div>
+                                <button class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><i
+                                        data-lucide="more-horizontal" class="w-5 h-5"></i></button>
+                            </div>
+                            <div class="flex-1 w-full min-h-0 relative">
+                                <canvas id="barChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Transactions -->
+                    <div id="transactions-card" class="card">
+                        <div class="flex justify-between items-center mb-6">
+                            <div class="flex items-center gap-2">
+                                <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                                <h3 class="font-semibold text-lg text-slate-800 dark:text-slate-100">
+                                    Transações Recentes
+                                </h3>
+                            </div>
+                            <span
+                                class="text-xs font-medium text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-md">Últimos
+                                30D</span>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr
+                                        class="text-slate-400 dark:text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200 dark:border-slate-700/50">
+                                        <th class="pb-4 font-semibold px-2">Descrição</th>
+                                        <th class="pb-4 font-semibold">Data</th>
+                                        <th class="pb-4 font-semibold">Status / Valor</th>
+                                        <th class="pb-4 font-semibold text-right"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="transactions-list"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-6">
+                    <!-- TransactionForm -->
+                    <div class="card">
+                        <h3 class="font-semibold text-lg text-slate-800 dark:text-slate-100 mb-1">
+                            Nova Transação
+                        </h3>
+                        <p
+                            class="text-xs text-slate-500 dark:text-slate-400 mb-5 pb-4 border-b border-slate-200 dark:border-slate-700/50">
+                            Adicione novas entradas ou
+                            saídas</p>
+
+                        <form id="transaction-form" class="space-y-4">
+                            <div
+                                class="bg-slate-100/50 dark:bg-slate-800/50 p-1 rounded-xl flex border border-slate-200 dark:border-slate-700/50 backdrop-blur-sm">
+                                <button type="button" id="btn-type-income"
+                                    class="flex-1 py-1.5 rounded-lg text-sm font-semibold transition-all shadow-sm text-slate-500 hover:text-slate-700 bg-transparent border border-transparent shadow-none">
+                                    Receita
+                                </button>
+                                <button type="button" id="btn-type-expense"
+                                    class="flex-1 py-1.5 rounded-lg text-sm font-semibold transition-all shadow-sm bg-white dark:bg-slate-700 text-rose-600 dark:text-rose-400 border border-slate-200 dark:border-slate-600">
+                                    Despesa
+                                </button>
+                            </div>
+
+                            <div>
+                                <label
+                                    class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 ml-1 tracking-wide">Descrição</label>
+                                <input type="text" id="form-desc" required placeholder="Ex: Almoço"
+                                    class="w-full bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-all placeholder:text-slate-400 shadow-sm" />
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label
+                                        class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 ml-1 tracking-wide">Valor
+                                        (R$)</label>
+                                    <input type="number" id="form-amount" required min="0" step="0.01"
+                                        placeholder="0,00"
+                                        class="w-full bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-all placeholder:text-slate-400 shadow-sm" />
+                                </div>
+                                <div>
+                                    <label
+                                        class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 ml-1 tracking-wide">Data</label>
+                                    <input type="date" id="form-date" required
+                                        class="w-full bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-all shadow-sm" />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label
+                                    class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 ml-1 tracking-wide">Categoria</label>
+                                <select id="form-category"
+                                    class="w-full bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-all shadow-sm">
+                                    <!-- Options updated via JS -->
+                                </select>
+                            </div>
+
+                            <button type="submit" class="w-full btn-primary mt-6 py-3">
+                                <i data-lucide="send" class="w-4 h-4"></i>
+                                Registrar Transação
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Goals -->
+                    <div id="goals-card" class="card space-y-6"></div>
+                </div>
+            </div>
+        </main>
+
+        <main id="view-goals" class="max-w-[1400px] mx-auto space-y-6 hidden">
+            <div class="card max-w-2xl mx-auto">
+                <h2 class="text-2xl font-semibold mb-4 text-slate-800 dark:text-slate-100">Minhas Metas</h2>
+                <div id="goals-list-edit" class="space-y-4 mb-6"></div>
+
+                <h3 class="font-semibold text-lg text-slate-800 dark:text-slate-100 mb-2">Nova Meta</h3>
+                <form id="goal-form" class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 ml-1">Nome
+                                da Meta</label>
+                            <input type="text" id="goal-name" required placeholder="Ex: Viagem"
+                                class="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-2 text-slate-900 dark:text-white focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400" />
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 ml-1">Icon
+                                (Lucide)</label>
+                            <select id="goal-icon"
+                                class="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-2 text-slate-900 dark:text-white focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400">
+                                <option value="target">Alvo (Target)</option>
+                                <option value="plane">Viagem (Plane)</option>
+                                <option value="car">Carro (Car)</option>
+                                <option value="home">Casa (Home)</option>
+                                <option value="smartphone">Eletrônico (Smartphone)</option>
+                                <option value="heart">Saúde (Heart)</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label
+                                class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 ml-1">Valor
+                                Alvo (R$)</label>
+                            <input type="number" id="goal-target" required min="1" step="0.01"
+                                class="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-2 text-slate-900 dark:text-white focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400" />
+                        </div>
+                    </div>
+                    <button type="submit"
+                        class="w-full btn-primary py-3 hover:translate-y-[-1px] transition-transform"><i
+                            data-lucide="plus" class="w-4 h-4"></i>
+                        Adicionar Meta</button>
+                </form>
+            </div>
+        </main>
+
+        <main id="view-config" class="max-w-[1400px] mx-auto space-y-6 hidden">
+            <div class="card max-w-2xl mx-auto">
+                <h2 class="text-2xl font-semibold mb-4 text-slate-800 dark:text-slate-100">Configurações</h2>
+                <div class="space-y-4">
+                    <div
+                        class="flex items-center justify-between p-4 bg-slate-50/50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700/50">
+                        <div>
+                            <p class="font-semibold text-slate-800 dark:text-slate-200">Limpar todos os dados</p>
+                            <p class="text-sm text-slate-500 dark:text-slate-400">Isso apagará todas as transações,
+                                metas e perfil.
+                                Irreversível.</p>
+                        </div>
+                        <button id="btn-clear-data"
+                            class="bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-200 dark:hover:bg-rose-500/30 px-4 py-2 rounded-lg font-medium transition-colors">Zerar
+                            Dados</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <main id="view-profile" class="max-w-[1400px] mx-auto space-y-6 hidden">
+            <div class="card max-w-lg mx-auto">
+                <h2 class="text-2xl font-semibold mb-4 text-slate-800 dark:text-slate-100">Perfil de Usuário</h2>
+                <form id="profile-form" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 ml-1">Seu
+                            Nome</label>
+                        <input type="text" id="profile-name" required placeholder="Digite seu nome"
+                            class="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-2 text-slate-900 dark:text-white focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400" />
+                    </div>
+                    <button type="submit"
+                        class="btn-primary w-full py-3 hover:translate-y-[-1px] transition-transform"><i
+                            data-lucide="save" class="w-4 h-4"></i>
+                        Salvar Alterações</button>
+                </form>
+            </div>
+        </main>
+    </div>
+
+    <!-- Edit Transaction Modal -->
+    <div id="edit-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onclick="closeEditModal()"></div>
+        <div class="card relative w-full max-w-md mx-auto shadow-2xl p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="font-semibold text-lg text-slate-800 dark:text-slate-100">Editar Transação</h3>
+                <button onclick="closeEditModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <form id="edit-transaction-form" class="space-y-4">
+                <div class="bg-slate-100/50 dark:bg-slate-800/50 p-1 rounded-xl flex border border-slate-200 dark:border-slate-700/50 backdrop-blur-sm mb-4">
+                    <button type="button" id="edit-btn-type-income" class="flex-1 py-1.5 rounded-lg text-sm font-semibold transition-all shadow-sm text-slate-500 hover:text-slate-700 bg-transparent border border-transparent shadow-none">Receita</button>
+                    <button type="button" id="edit-btn-type-expense" class="flex-1 py-1.5 rounded-lg text-sm font-semibold transition-all shadow-sm bg-white dark:bg-slate-700 text-rose-600 dark:text-rose-400 border border-slate-200 dark:border-slate-600">Despesa</button>
+                </div>
+                
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 ml-1 tracking-wide">Descrição</label>
+                    <input type="text" id="edit-form-desc" required class="w-full bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-all placeholder:text-slate-400 shadow-sm" />
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 ml-1 tracking-wide">Valor (R$)</label>
+                        <input type="number" id="edit-form-amount" required min="0" step="0.01" class="w-full bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-all placeholder:text-slate-400 shadow-sm" />
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 ml-1 tracking-wide">Data</label>
+                        <input type="date" id="edit-form-date" required class="w-full bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-all shadow-sm" />
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 ml-1 tracking-wide">Categoria</label>
+                    <select id="edit-form-category" class="w-full bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-all shadow-sm"></select>
+                </div>
+                <button type="submit" class="w-full btn-primary mt-6 py-3">
+                    <i data-lucide="save" class="w-4 h-4"></i>
+                    Salvar Alterações
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div id="edit-goal-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onclick="closeEditGoalModal()"></div>
+        <div class="card relative w-full max-w-md mx-auto shadow-2xl p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="font-semibold text-lg text-slate-800 dark:text-slate-100">Editar Meta</h3>
+                <button onclick="closeEditGoalModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <form id="edit-goal-form" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 ml-1">Nome da Meta</label>
+                    <input type="text" id="edit-goal-name" required class="w-full bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-all shadow-sm" />
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 ml-1">Icon (Lucide)</label>
+                        <select id="edit-goal-icon" class="w-full bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-all shadow-sm">
+                            <option value="target">Alvo (Target)</option>
+                            <option value="plane">Viagem (Plane)</option>
+                            <option value="car">Carro (Car)</option>
+                            <option value="home">Casa (Home)</option>
+                            <option value="smartphone">Eletrônico (Smartphone)</option>
+                            <option value="heart">Saúde (Heart)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 ml-1">Alvo (R$)</label>
+                        <input type="number" id="edit-goal-target" required min="1" step="0.01" class="w-full bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-all shadow-sm" />
+                    </div>
+                </div>
+                <button type="submit" class="w-full btn-primary mt-6 py-3">
+                    <i data-lucide="save" class="w-4 h-4"></i>
+                    Salvar Meta
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script src="src/app.js"></script>
+</body>
+
+</html>
