@@ -829,19 +829,32 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Config Setup
+    // Config Setup - Zerar Dados
+    // Ao zerar, reinstancia o appData com TODOS os campos necessários (incluindo settings)
+    // para evitar que funções como applyTheme() e renderCharts() quebrem por falta de propriedades.
     document.getElementById('btn-clear-data').addEventListener('click', () => {
         if (confirm('Tem certeza absoluta que deseja apagar todos os dados? Isso não pode ser desfeito.')) {
-            localStorage.removeItem('financeFlowData');
+            // Preserva o tema atual para não perder a preferência visual do usuário
+            const currentTheme = (appData.settings && appData.settings.theme) ? appData.settings.theme : 'light';
+
+            // Reinicia o appData do zero, mantendo a estrutura completa e obrigatória
             appData = {
-                user: { name: 'Usuário' },
+                user: { name: '' },
+                settings: { theme: currentTheme },
                 transactions: [],
                 goals: []
             };
-            document.getElementById('profile-name').value = appData.user.name;
+
+            // Limpa o campo de nome no perfil para que o usuário possa inserir um novo
+            document.getElementById('profile-name').value = '';
+
+            // Persiste o estado zerado e atualiza toda a interface
             saveData();
             updateDashboard();
+
+            // Redireciona para o Dashboard para o usuário ver o estado limpo
             switchView('view-dashboard');
+            alert('Todos os dados foram apagados com sucesso!');
         }
     });
 
