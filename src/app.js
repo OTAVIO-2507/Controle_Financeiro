@@ -79,10 +79,11 @@ let editingGoalId = null;
 // para garantir que a interface sempre reflita os dados mais recentes de `appData`.
 function updateDashboard() {
     let inc = 0, exp = 0;
-    // Calcula o total de receitas e despesas somando todas as transações
+    // Calcula o total de receitas e despesas somando apenas transações do tipo 'income' e 'expense'.
+    // Transações do tipo 'goal' são ignoradas propositalmente para não afetar o Saldo, Receitas ou Despesas.
     appData.transactions.forEach(t => {
         if (t.type === 'income') inc += t.amount;
-        else exp += t.amount;
+        else if (t.type === 'expense') exp += t.amount;
     });
     
     // Saldo é a Receita menos as Despesas
@@ -111,21 +112,36 @@ function updateDashboard() {
     lucide.createIcons();
 }
 
-// Função simples para dividir todo dinheiro poupado por igual para cada meta criada,
-// Apenas para mostrar um progresso dinâmico visualmente na tela de Dashboard
+// Distribui as economias automaticamente entre as metas que NÃO têm depósitos manuais,
+// preservando os valores já aportados diretamente pelo usuário via tipo 'goal'.
 function distributeSavingsToGoals(totalSavings) {
     if (appData.goals.length === 0) return;
-    const perGoal = totalSavings / appData.goals.length;
-    appData.goals = appData.goals.map(g => ({ ...g, current: perGoal }));
+
+    // Calcula quanto cada meta já recebeu via depósitos manuais (tipo 'goal')
+    const manualDeposits = {};
+    appData.transactions
+        .filter(t => t.type === 'goal' && t.goalId)
+        .forEach(t => {
+            manualDeposits[t.goalId] = (manualDeposits[t.goalId] || 0) + t.amount;
+        });
+
+    // Metas sem depósito manual recebem a distribuição automática proporcional
+    const goalsWithoutManual = appData.goals.filter(g => !manualDeposits[g.id]);
+    const perGoal = goalsWithoutManual.length > 0 ? totalSavings / goalsWithoutManual.length : 0;
+
+    appData.goals = appData.goals.map(g => ({
+        ...g,
+        current: manualDeposits[g.id] !== undefined ? manualDeposits[g.id] : perGoal
+    }));
 }
 
-// Função que gera o HTML dos 4 cartões principais no topo do Dashboard (Saldo, Receitas, Despesas, Economia)
+// Função que gera o HTML dos 4 cartões principais no topo do Dashboard
+// (Saldo, Receitas, Despesas, Economia)
 function renderSummaryCards(income, expense, balance, savings) {
     const container = document.getElementById('summary-cards');
-    // Calcula a porcentagem do que foi "poupado". Se não houver receita, é 0%.
+    container.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6';
     const savingsPercent = income > 0 ? Math.round((savings / income) * 100) : 0;
 
-    // Atualiza o conteúdo HTML da div container com template strings
     container.innerHTML = `
         <div class="card group relative overflow-hidden">
             <div class="absolute -bottom-6 -right-4 opacity-[0.04] dark:opacity-[0.02] group-hover:scale-110 group-hover:opacity-[0.08] transition-all duration-500">
@@ -201,6 +217,7 @@ function renderSummaryCards(income, expense, balance, savings) {
                 <span class="text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-1 rounded-md">${formatCurrency(savings)}</span>
             </div>
         </div>
+
     `;
 }
 
@@ -208,29 +225,44 @@ function renderSummaryCards(income, expense, balance, savings) {
 function renderTransactions() {
     const tbody = document.getElementById('transactions-list');
     
-    // Se não houver transações cadastradas, mostra uma mensagem vazia
     if (appData.transactions.length === 0) {
         tbody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-slate-500">Nenhuma transação encontrada. Comece a adicionar!</td></tr>`;
         return;
     }
 
-    // Pega as primeiras 6 transações (slice) e cria as linhas da tabela (tr) para cada uma delas (map)
     tbody.innerHTML = appData.transactions.slice(0, 6).map(t => {
-        const icon = getCategoryIcon(t.category);
         const isIncome = t.type === 'income';
-        const typeIcon = isIncome ? 'arrow-up-right' : 'arrow-down-right';
-        const typeClass = isIncome ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20' : 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-500/20';
+        const isGoal = t.type === 'goal';
+
+        // Define ícone, cor e símbolo de seta baseado no tipo
+        const icon = isGoal ? 'flag' : getCategoryIcon(t.category);
+        const typeIcon = isGoal ? 'star' : (isIncome ? 'arrow-up-right' : 'arrow-down-right');
+        const typeClass = isGoal
+            ? 'bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-100 dark:border-violet-500/20'
+            : (isIncome
+                ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20'
+                : 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-500/20');
+        const iconBg = isGoal
+            ? 'bg-violet-50 dark:bg-violet-500/10 text-violet-500 border-violet-100 dark:border-violet-500/20'
+            : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 group-hover:bg-blue-50 dark:group-hover:bg-blue-500/10 group-hover:text-blue-600 dark:group-hover:text-blue-400 border-slate-100 dark:border-slate-700/50';
+
+        // Label de categoria: para metas, mostra o nome da meta
+        let categoryLabel = t.category;
+        if (isGoal && t.goalId) {
+            const goal = appData.goals.find(g => g.id === t.goalId);
+            if (goal) categoryLabel = `→ ${goal.name}`;
+        }
 
         return `
             <tr class="border-b border-slate-100 dark:border-slate-700/50 hover:bg-white/40 dark:hover:bg-slate-800/40 transition-colors group">
                 <td class="py-4 px-2">
                     <div class="flex items-center gap-3">
-                        <div class="p-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 group-hover:bg-blue-50 dark:group-hover:bg-blue-500/10 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors border border-slate-100 dark:border-slate-700/50">
+                        <div class="p-2 rounded-xl transition-colors border ${iconBg}">
                             <i data-lucide="${icon}" class="w-4 h-4"></i>
                         </div>
                         <div>
-                            <span class="block font-semibold text-slate-800">${t.description}</span>
-                            <span class="text-xs text-slate-400">${t.category}</span>
+                            <span class="block font-semibold text-slate-800 dark:text-slate-100">${t.description}</span>
+                            <span class="text-xs text-slate-400">${categoryLabel}</span>
                         </div>
                     </div>
                 </td>
@@ -339,15 +371,15 @@ function renderGoalsDashboard() {
     const calculateProgress = (curr, target) => Math.min(Math.round((curr / target) * 100), 100);
 
     let html = `
-        <div class="pb-4 border-b border-slate-200">
-            <h3 class="font-semibold text-lg text-slate-800">Metas Financeiras</h3>
-            <p class="text-xs text-slate-500 mt-1">Acompanhe a sua jornada financeira</p>
+        <div class="pb-4 border-b border-slate-200 dark:border-slate-700/50">
+            <h3 class="font-semibold text-lg text-slate-800 dark:text-white">Metas Financeiras</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Acompanhe a sua jornada financeira</p>
         </div>
         <div class="space-y-6">
     `;
 
     if (appData.goals.length === 0) {
-        html += `<p class="text-sm text-slate-500">Nenhuma meta configurada.</p>`;
+        html += `<p class="text-sm text-slate-500 dark:text-slate-400">Nenhuma meta configurada.</p>`;
     }
 
     appData.goals.slice(0, 3).forEach((g, i) => {
@@ -358,7 +390,7 @@ function renderGoalsDashboard() {
         html += `
             <div>
                 <div class="flex justify-between text-sm mb-3">
-                    <div class="flex items-center gap-2 text-slate-700">
+                    <div class="flex items-center gap-2 text-slate-700 dark:text-slate-100">
                         <i data-lucide="${g.icon || 'target'}" class="w-4 h-4 text-${color}-500"></i>
                         <span class="font-semibold">${g.name}</span>
                     </div>
@@ -366,12 +398,12 @@ function renderGoalsDashboard() {
                         <span class="dark:text-white">${formatCurrencyCompact(g.current)}</span> / <span class="dark:text-white">${formatCurrencyCompact(g.target)}</span>
                     </span>
                 </div>
-                <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden border border-slate-200 shadow-inner">
+                <div class="w-full bg-slate-100 dark:bg-slate-700/50 rounded-full h-3 overflow-hidden border border-slate-200 dark:border-slate-600/50 shadow-inner">
                     <div class="bg-${color}-400 h-full rounded-full transition-all duration-1000 relative" style="width: ${prog}%">
                         <div class="absolute inset-0 bg-white/20"></div>
                     </div>
                 </div>
-                <div class="mt-2 flex items-start gap-2 text-xs text-slate-500">
+                <div class="mt-2 flex items-start gap-2 text-xs text-slate-500 dark:text-slate-400">
                     <i data-lucide="${prog >= 100 ? 'check-circle-2' : 'trending-up'}" class="w-4 h-4 text-${color}-500 shrink-0"></i>
                     <span>Progresso: ${prog}% da meta atingido.</span>
                 </div>
@@ -381,6 +413,7 @@ function renderGoalsDashboard() {
 
     html += `</div>`;
     container.innerHTML = html;
+
 }
 
 // Renderiza a lista de Metas na aba de "Configurações" (onde é possível editar e deletar)
@@ -645,55 +678,118 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentType = 'expense';
     const btnIncome = document.getElementById('btn-type-income');
     const btnExpense = document.getElementById('btn-type-expense');
+    const btnGoal = document.getElementById('btn-type-goal');
     const selectCategory = document.getElementById('form-category');
+    const goalSelectorWrapper = document.getElementById('goal-selector-wrapper');
+    const formGoalSelect = document.getElementById('form-goal-select');
+    const formCategoryWrapper = document.getElementById('form-category-wrapper');
     const form = document.getElementById('transaction-form');
+
+    // Popula o select de metas com as metas existentes em appData
+    const updateGoalOptions = () => {
+        if (!formGoalSelect) return;
+        if (appData.goals.length === 0) {
+            formGoalSelect.innerHTML = `<option value="">Nenhuma meta cadastrada</option>`;
+        } else {
+            formGoalSelect.innerHTML = appData.goals.map(g =>
+                `<option value="${g.id}">${g.name} (${formatCurrencyCompact(g.current)} / ${formatCurrencyCompact(g.target)})</option>`
+            ).join('');
+        }
+    };
 
     const updateCategories = () => {
         const incomeCats = ['Trabalho', 'Investimentos', 'Outros'];
         const expenseCats = ['Alimentação', 'Moradia', 'Trabalho', 'Transporte', 'Saúde', 'Lazer', 'Compras', 'Outros'];
         const cats = currentType === 'income' ? incomeCats : expenseCats;
-
         selectCategory.innerHTML = cats.map(c => `<option value="${c}">${c}</option>`).join('');
     };
 
+    // Estilos dos botões de tipo (inactive)
+    const inactiveBtn = 'flex-1 py-1.5 rounded-lg text-sm font-semibold transition-all shadow-sm text-slate-500 hover:text-slate-700 bg-transparent border border-transparent shadow-none';
+
     const setType = (type) => {
         currentType = type;
+
+        // Reseta todos os botões primeiro
+        btnIncome.className = inactiveBtn;
+        btnExpense.className = inactiveBtn;
+        btnGoal.className = inactiveBtn;
+
+        // Ativa o botão correto com sua cor
         if (type === 'income') {
-            btnIncome.className = "flex-1 py-1.5 rounded-lg text-sm font-semibold transition-all shadow-sm bg-white text-emerald-600 border border-slate-200";
-            btnExpense.className = "flex-1 py-1.5 rounded-lg text-sm font-semibold transition-all shadow-sm text-slate-500 hover:text-slate-700 bg-transparent border border-transparent shadow-none";
-        } else {
-            btnExpense.className = "flex-1 py-1.5 rounded-lg text-sm font-semibold transition-all shadow-sm bg-white text-rose-600 border border-slate-200";
-            btnIncome.className = "flex-1 py-1.5 rounded-lg text-sm font-semibold transition-all shadow-sm text-slate-500 hover:text-slate-700 bg-transparent border border-transparent shadow-none";
+            btnIncome.className = 'flex-1 py-1.5 rounded-lg text-sm font-semibold transition-all shadow-sm bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 border border-slate-200 dark:border-slate-600';
+        } else if (type === 'expense') {
+            btnExpense.className = 'flex-1 py-1.5 rounded-lg text-sm font-semibold transition-all shadow-sm bg-white dark:bg-slate-700 text-rose-600 dark:text-rose-400 border border-slate-200 dark:border-slate-600';
+        } else if (type === 'goal') {
+            btnGoal.className = 'flex-1 py-1.5 rounded-lg text-sm font-semibold transition-all shadow-sm bg-white dark:bg-slate-700 text-violet-600 dark:text-violet-400 border border-slate-200 dark:border-slate-600';
         }
-        updateCategories();
+
+        // Mostra/oculta o seletor de metas, a categoria e o campo de descrição
+        const descWrapper = document.getElementById('form-desc-wrapper');
+        if (type === 'goal') {
+            goalSelectorWrapper.classList.remove('hidden');
+            formCategoryWrapper.classList.add('hidden');
+            if (descWrapper) descWrapper.classList.add('hidden'); // Oculta descrição na Meta
+            updateGoalOptions(); // Garante que as metas estejam atualizadas
+        } else {
+            goalSelectorWrapper.classList.add('hidden');
+            formCategoryWrapper.classList.remove('hidden');
+            if (descWrapper) descWrapper.classList.remove('hidden'); // Mostra descrição para outros tipos
+            updateCategories();
+        }
     };
 
     btnIncome.addEventListener('click', () => setType('income'));
     btnExpense.addEventListener('click', () => setType('expense'));
+    btnGoal.addEventListener('click', () => setType('goal'));
 
     setType('expense');
     document.getElementById('form-date').value = new Date().toISOString().split('T')[0];
 
     form.addEventListener('submit', (e) => {
         e.preventDefault();
-        const desc = document.getElementById('form-desc').value;
         const amount = parseFloat(document.getElementById('form-amount').value);
         const date = document.getElementById('form-date').value;
-        const category = selectCategory.value;
 
-        if (!desc || isNaN(amount)) return;
+        if (isNaN(amount) || amount <= 0) return;
 
-        const newTx = {
-            id: Math.random().toString(36).substr(2, 9),
-            description: desc,
-            amount,
-            type: currentType,
-            category,
-            date
-        };
+        let newTx;
+
+        if (currentType === 'goal') {
+            // --- Lógica de destinação para Meta ---
+            // Na Meta, a descrição é gerada automaticamente a partir do nome da meta selecionada
+            const selectedGoalId = formGoalSelect.value;
+            if (!selectedGoalId) {
+                alert('Selecione uma meta para destinar o valor!');
+                return;
+            }
+            const selectedGoal = appData.goals.find(g => g.id === selectedGoalId);
+            const autoDesc = selectedGoal ? `Aporte → ${selectedGoal.name}` : 'Aporte em Meta';
+            newTx = {
+                id: Math.random().toString(36).substr(2, 9),
+                description: autoDesc,
+                amount,
+                type: 'goal',
+                goalId: selectedGoalId,
+                category: 'Meta',
+                date
+            };
+        } else {
+            const desc = document.getElementById('form-desc').value;
+            if (!desc) return;
+            // --- Lógica padrão: Receita ou Despesa ---
+            const category = selectCategory.value;
+            newTx = {
+                id: Math.random().toString(36).substr(2, 9),
+                description: desc,
+                amount,
+                type: currentType,
+                category,
+                date
+            };
+        }
 
         appData.transactions.unshift(newTx);
-
         saveData();
         updateDashboard();
 
