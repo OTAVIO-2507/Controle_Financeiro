@@ -153,30 +153,54 @@
 
                     <!-- Transactions -->
                     <div id="transactions-card" class="card">
-                        <div class="flex justify-between items-center mb-6">
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                             <div class="flex items-center gap-2">
                                 <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
                                 <h3 class="font-semibold text-lg text-slate-800 dark:text-slate-100">
                                     Transações Recentes
                                 </h3>
                             </div>
-                            <span
-                                class="text-xs font-medium text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-md">Últimos
-                                30D</span>
+                            
+                            <!-- Search and Filters -->
+                            <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                                <div class="relative flex-1 md:flex-none">
+                                    <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                                    <input type="text" id="filter-search" placeholder="Buscar descrição..." 
+                                        class="w-full md:w-48 bg-slate-100/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-lg pl-9 pr-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary transition-all">
+                                </div>
+                                <select id="filter-category" class="bg-slate-100/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer transition-all">
+                                    <option value="all">Todas as Categorias</option>
+                                    <option value="Alimentação">Alimentação</option>
+                                    <option value="Moradia">Moradia</option>
+                                    <option value="Trabalho">Trabalho</option>
+                                    <option value="Compras">Compras</option>
+                                    <option value="Lazer">Lazer</option>
+                                    <option value="Outros">Outros</option>
+                                </select>
+                                <select id="filter-type" class="bg-slate-100/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer transition-all">
+                                    <option value="all">Todos os Tipos</option>
+                                    <option value="income">Receitas</option>
+                                    <option value="expense">Despesas</option>
+                                    <option value="goal">Depósitos em Metas</option>
+                                </select>
+                            </div>
                         </div>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse">
-                                <thead>
-                                    <tr
-                                        class="text-slate-400 dark:text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200 dark:border-slate-700/50">
-                                        <th class="pb-4 font-semibold px-2">Descrição</th>
-                                        <th class="pb-4 font-semibold">Data</th>
-                                        <th class="pb-4 font-semibold">Status / Valor</th>
-                                        <th class="pb-4 font-semibold text-right"></th>
-                                    </tr>
-                                </thead>
-                                <tbody id="transactions-list"></tbody>
-                            </table>
+
+                        <div class="max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr
+                                            class="text-slate-400 dark:text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200 dark:border-slate-700/50">
+                                            <th class="pb-4 font-semibold px-2">Descrição</th>
+                                            <th class="pb-4 font-semibold">Data</th>
+                                            <th class="pb-4 font-semibold">Status / Valor</th>
+                                            <th class="pb-4 font-semibold text-right"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="transactions-list"></tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -122,6 +122,8 @@ function updateDashboard() {
     renderRecurringList();
     updateGoalOptions();
     updateEditGoalOptions();
+    if (window.updateFilterCategories) window.updateFilterCategories();
+
 
     // Processo obrigatório para que a biblioteca renderize novos ícones na tela onde não existiam
     lucide.createIcons();
@@ -234,13 +236,26 @@ function renderSummaryCards(income, expense, balance, savings) {
 // Função responsável por desenhar a lista de transações recentes na tabela do Dashboard
 function renderTransactions() {
     const tbody = document.getElementById('transactions-list');
+    const searchValue = document.getElementById('filter-search')?.value.toLowerCase() || '';
+    const categoryFilter = document.getElementById('filter-category')?.value || 'all';
+    const typeFilter = document.getElementById('filter-type')?.value || 'all';
 
-    if (appData.transactions.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-slate-500">Nenhuma transação encontrada. Comece a adicionar!</td></tr>`;
+    const filteredTransactions = appData.transactions.filter(t => {
+        const matchesSearch = t.description && t.description.toLowerCase().includes(searchValue);
+        const matchesCategory = categoryFilter === 'all' || t.category === categoryFilter;
+        const matchesType = typeFilter === 'all' || t.type === typeFilter;
+        return matchesSearch && matchesCategory && matchesType;
+    });
+
+    if (filteredTransactions.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-slate-500">Nenhuma transação encontrada com os filtros atuais.</td></tr>`;
         return;
     }
 
-    tbody.innerHTML = appData.transactions.slice(0, 6).map(t => {
+    const isFiltering = searchValue || categoryFilter !== 'all' || typeFilter !== 'all';
+    const displayList = isFiltering ? filteredTransactions : filteredTransactions.slice(0, 6);
+
+    tbody.innerHTML = displayList.map(t => {
         const isIncome = t.type === 'income';
         const isGoal = t.type === 'goal';
 
@@ -296,6 +311,7 @@ function renderTransactions() {
             </tr>
         `;
     }).join('');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 // Abre a janela flutuante (Modal) para editar uma transação existente
@@ -1237,6 +1253,31 @@ document.addEventListener('DOMContentLoaded', () => {
         const expenseCats = ['Alimentação', 'Moradia', 'Trabalho', 'Transporte', 'Saúde', 'Lazer', 'Compras', 'Outros'];
         recurringCategorySelect.innerHTML = expenseCats.map(c => `<option value="${c}">${c}</option>`).join('');
     }
+
+    // 7°. Filtros de Transações
+    const filterSearch = document.getElementById('filter-search');
+    const filterCategory = document.getElementById('filter-category');
+    const filterType = document.getElementById('filter-type');
+
+    if (filterSearch) filterSearch.addEventListener('input', () => renderTransactions());
+    if (filterCategory) filterCategory.addEventListener('change', () => renderTransactions());
+    if (filterType) filterType.addEventListener('change', () => renderTransactions());
+
+    window.updateFilterCategories = () => {
+        const categorySelect = document.getElementById('filter-category');
+        if (!categorySelect) return;
+
+        const currentVal = categorySelect.value;
+        const allCategories = [...new Set(appData.transactions.map(t => t.category))].filter(Boolean).sort();
+        
+        let html = '<option value="all">Todas as Categorias</option>';
+        allCategories.forEach(cat => {
+            html += `<option value="${cat}">${cat}</option>`;
+        });
+        
+        categorySelect.innerHTML = html;
+        categorySelect.value = allCategories.includes(currentVal) ? currentVal : 'all';
+    };
 
     updateDashboard();
 });
