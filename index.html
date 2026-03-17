@@ -263,6 +263,45 @@
                         </form>
                     </div>
 
+                    <!-- Gasto Recorrente (Gastos Fixos Mensais) -->
+                    <div class="card">
+                        <h3 class="font-semibold text-lg text-slate-800 dark:text-slate-100 mb-1">
+                            Gasto Recorrente
+                        </h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mb-5 pb-4 border-b border-slate-200 dark:border-slate-700/50">
+                            Gastos Fixos Mensais
+                        </p>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 ml-1 tracking-wide">Descrição</label>
+                                <input type="text" id="recurring-desc" placeholder="Ex: Aluguel" class="w-full bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-all placeholder:text-slate-400 shadow-sm" />
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 ml-1 tracking-wide">Valor (R$)</label>
+                                    <input type="number" id="recurring-amount" placeholder="0,00" step="0.01" class="w-full bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-all placeholder:text-slate-400 shadow-sm" />
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 ml-1 tracking-wide">Dia do Mês</label>
+                                    <input type="number" id="recurring-day" placeholder="5" min="1" max="31" class="w-full bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-all placeholder:text-slate-400 shadow-sm" />
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 ml-1 tracking-wide">Categoria</label>
+                                <select id="recurring-category" class="w-full bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-all shadow-sm">
+                                    <!-- Options updated via JS -->
+                                </select>
+                            </div>
+                            <button onclick="addRecurring()" class="w-full btn-primary py-3">
+                                <i data-lucide="plus" class="w-4 h-4"></i>
+                                Adicionar Fixo
+                            </button>
+                        </div>
+                        <div id="recurring-list" class="mt-6 space-y-3 max-h-64 overflow-y-auto pr-2">
+                            <!-- Populada via JS -->
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </main>
@@ -325,32 +364,6 @@
                         <button id="btn-clear-data"
                             class="bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-200 dark:hover:bg-rose-500/30 px-4 py-2 rounded-lg font-medium transition-colors">Zerar
                             Dados</button>
-                    </div>
-
-                    <div class="pt-6 border-t border-slate-200 dark:border-slate-700/50">
-                        <h3 class="font-semibold text-lg text-slate-800 dark:text-slate-100 mb-4">Gasto Recorrente (Gastos Fixos Mensais)</h3>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div class="space-y-4">
-                                <div>
-                                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Descrição</label>
-                                    <input type="text" id="recurring-desc" placeholder="Ex: Aluguel" class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-2 text-sm" />
-                                </div>
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Valor (R$)</label>
-                                        <input type="number" id="recurring-amount" placeholder="0,00" step="0.01" class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-2 text-sm" />
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Dia do Mês</label>
-                                        <input type="number" id="recurring-day" placeholder="5" min="1" max="31" class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-2 text-sm" />
-                                    </div>
-                                </div>
-                                <button onclick="addRecurring()" class="w-full btn-primary py-2 text-sm"><i data-lucide="plus" class="w-4 h-4"></i> Adicionar Fixo</button>
-                            </div>
-                            <div id="recurring-list" class="space-y-3 max-h-64 overflow-y-auto pr-2">
-                                <!-- Populada via JS -->
-                            </div>
-                        </div>
                     </div>
 
 

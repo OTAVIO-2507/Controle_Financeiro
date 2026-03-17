@@ -755,7 +755,7 @@ function renderRecurringList() {
         <div class="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-700/50">
             <div>
                 <p class="font-semibold text-slate-800 dark:text-slate-100">${r.description}</p>
-                <p class="text-xs text-slate-500">${formatCurrency(r.amount)} - Dia ${r.day || '1'}</p>
+                <p class="text-xs text-slate-500">${formatCurrency(r.amount)} - ${r.category} - Dia ${r.day || '1'}</p>
             </div>
             <div class="flex gap-2">
                 <button onclick="applyRecurring('${r.id}')" class="p-2 text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 rounded-lg" title="Aplicar este mês">
@@ -775,6 +775,7 @@ window.addRecurring = function () {
     const desc = document.getElementById('recurring-desc').value;
     const amount = parseFloat(document.getElementById('recurring-amount').value);
     const day = parseInt(document.getElementById('recurring-day').value) || 1;
+    const category = document.getElementById('recurring-category').value;
 
     if (!desc || isNaN(amount)) return;
 
@@ -783,6 +784,7 @@ window.addRecurring = function () {
         description: desc,
         amount,
         day,
+        category,
         type: 'expense'
     });
 
@@ -813,7 +815,7 @@ window.applyRecurring = function (id) {
         description: `[Fixo] ${rec.description}`,
         amount: rec.amount,
         type: 'expense',
-        category: 'Outros', // Categoria padrão para fixos
+        category: rec.category || 'Outros', // Categoria padrão para fixos
         date: dateStr
     };
 
@@ -1228,6 +1230,13 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('nav-logout').addEventListener('click', () => {
         alert('Aqui seria a função de logout!');
     });
+
+    // 6°. Configura o seletor de categorias para gastos recorrentes
+    const recurringCategorySelect = document.getElementById('recurring-category');
+    if (recurringCategorySelect) {
+        const expenseCats = ['Alimentação', 'Moradia', 'Trabalho', 'Transporte', 'Saúde', 'Lazer', 'Compras', 'Outros'];
+        recurringCategorySelect.innerHTML = expenseCats.map(c => `<option value="${c}">${c}</option>`).join('');
+    }
 
     updateDashboard();
 });
