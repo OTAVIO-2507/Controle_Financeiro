@@ -13,17 +13,22 @@ let appData = {
     goals: [
         { id: 'g1', name: 'Reserva de Emergência', icon: 'shield-alert', target: 20000, current: 0 },
         { id: 'g2', name: 'Entrada da Casa', icon: 'car', target: 150000, current: 0 }
-    ]
+    ],
+    // Lista de transações recorrentes (Gastos Fixos)
+    recurringTransactions: [],
+    // Ano selecionado para o gráfico de controle anual
+    selectedYear: new Date().getFullYear()
 };
 
 // Variáveis para guardar as instâncias dos gráficos da biblioteca Chart.js.
 // Isso é necessário para podermos "destruir" (apagar) o gráfico antigo antes de desenhar um novo quando houver atualizações.
 let pieChartInstance = null;
 let barChartInstance = null;
+let yearlyChartInstance = null;
 
 // Funções utilitárias para formatar valores.
 // formatCurrency: Formata um número para o padrão de moeda do Brasil (ex: R$ 1.500,00)
-const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
 
 // formatCurrencyCompact: Formata números muito grandes de forma compacta (ex: R$ 1,5 mil)
 const formatCurrencyCompact = (val) => new Intl.NumberFormat('pt-BR', { notation: "compact", style: 'currency', currency: 'BRL' }).format(val);
@@ -59,9 +64,14 @@ function loadData() {
             console.error('Error parsing localStorage data', e);
         }
     }
-    // Caso de compatibilidade (se o usuário for antigo e ainda não tinha o campo settings), nós garantimos que existe.
     if (!appData.settings) {
         appData.settings = { theme: 'light' };
+    }
+    if (!appData.recurringTransactions) {
+        appData.recurringTransactions = [];
+    }
+    if (!appData.selectedYear) {
+        appData.selectedYear = new Date().getFullYear();
     }
 }
 
@@ -78,43 +88,47 @@ let editingGoalId = null;
 // A função mais importante. É ela que engatilha a atualização de todas as partes visuais na tela
 // para garantir que a interface sempre reflita os dados mais recentes de `appData`.
 function updateDashboard() {
-    let inc = 0, exp = 0;
-    // Calcula o total de receitas e despesas somando apenas transações do tipo 'income' e 'expense'.
-    // Transações do tipo 'goal' são ignoradas propositalmente para não afetar o Saldo, Receitas ou Despesas.
+    let inc = 0, exp = 0, goals = 0;
+    // Calcula o total de receitas e despesas.
+    // Transações do tipo 'goal' agora influenciam o Saldo Atual.
     appData.transactions.forEach(t => {
         if (t.type === 'income') inc += t.amount;
         else if (t.type === 'expense') exp += t.amount;
+        else if (t.type === 'goal') goals += t.amount;
     });
-    
-    // Saldo é a Receita menos as Despesas
-    const balance = inc - exp;
-    
-    // Para simplificar, o "dinheiro guardado" (economia) é o saldo restante positivo
-    const savings = balance > 0 ? balance : 0;
 
-    // Distribui as economias equitativamente entre as metas para efeito demonstrativo
-    distributeSavingsToGoals(savings);
+    // Saldo é a Receita menos as Despesas e as Metas
+    const balance = inc - exp - goals;
+
+    // A economia total é o que sobrou no saldo atual (Meta do Usuário: exibir o mesmo valor do saldo por enquanto)
+    const totalSavings = balance;
+
+    // Calcula o progresso das metas
+    updateGoalProgress();
 
     // Atualiza o nome do usuário na tela de boas-vindas
     document.getElementById('user-name-display').innerText = appData.user.name;
-    
+
     // Certifica-se de que as cores (claro ou escuro) estão corretas
     applyTheme();
 
     // Redesenha todos os componentes chamando suas respectivas funções
-    renderSummaryCards(inc, exp, balance, savings);
+    renderSummaryCards(inc, exp, balance, totalSavings);
     renderTransactions();
     renderCharts();
+    renderYearlyChart();
     renderGoalsDashboard();
     renderGoalsEditList();
-    
+    renderRecurringList();
+    updateGoalOptions();
+    updateEditGoalOptions();
+
     // Processo obrigatório para que a biblioteca renderize novos ícones na tela onde não existiam
     lucide.createIcons();
 }
 
-// Distribui as economias automaticamente entre as metas que NÃO têm depósitos manuais,
-// preservando os valores já aportados diretamente pelo usuário via tipo 'goal'.
-function distributeSavingsToGoals(totalSavings) {
+// Calcula o progresso das metas baseado estritamente em transações de tipo 'goal'
+function updateGoalProgress() {
     if (appData.goals.length === 0) return;
 
     // Calcula quanto cada meta já recebeu via depósitos manuais (tipo 'goal')
@@ -125,13 +139,9 @@ function distributeSavingsToGoals(totalSavings) {
             manualDeposits[t.goalId] = (manualDeposits[t.goalId] || 0) + t.amount;
         });
 
-    // Metas sem depósito manual recebem a distribuição automática proporcional
-    const goalsWithoutManual = appData.goals.filter(g => !manualDeposits[g.id]);
-    const perGoal = goalsWithoutManual.length > 0 ? totalSavings / goalsWithoutManual.length : 0;
-
     appData.goals = appData.goals.map(g => ({
         ...g,
-        current: manualDeposits[g.id] !== undefined ? manualDeposits[g.id] : perGoal
+        current: manualDeposits[g.id] || 0
     }));
 }
 
@@ -150,7 +160,7 @@ function renderSummaryCards(income, expense, balance, savings) {
             <div class="flex justify-between items-start mb-3 relative z-10">
                 <div>
                     <h3 class="text-slate-500 text-sm font-medium">Saldo Atual</h3>
-                    <h2 class="text-3xl font-bold text-slate-900 dark:text-white mt-1">${formatCurrencyCompact(balance)}</h2>
+                    <h2 class="text-3xl font-bold text-slate-900 dark:text-white mt-1">${formatCurrency(balance)}</h2>
                 </div>
                 <div class="p-2 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-xl relative z-10">
                     <i data-lucide="dollar-sign" class="w-5 h-5"></i>
@@ -168,7 +178,7 @@ function renderSummaryCards(income, expense, balance, savings) {
             <div class="flex justify-between items-start mb-3 relative z-10">
                 <div>
                     <h3 class="text-slate-500 text-sm font-medium">Receitas</h3>
-                    <h2 class="text-3xl font-bold text-slate-900 dark:text-white mt-1">${formatCurrencyCompact(income)}</h2>
+                    <h2 class="text-3xl font-bold text-slate-900 dark:text-white mt-1">${formatCurrency(income)}</h2>
                 </div>
                 <div class="p-2 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl relative z-10">
                     <i data-lucide="trending-up" class="w-5 h-5"></i>
@@ -186,7 +196,7 @@ function renderSummaryCards(income, expense, balance, savings) {
             <div class="flex justify-between items-start mb-3 relative z-10">
                 <div>
                     <h3 class="text-slate-500 text-sm font-medium">Despesas</h3>
-                    <h2 class="text-3xl font-bold text-slate-900 dark:text-white mt-1">${formatCurrencyCompact(expense)}</h2>
+                    <h2 class="text-3xl font-bold text-slate-900 dark:text-white mt-1">${formatCurrency(expense)}</h2>
                 </div>
                 <div class="p-2 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-xl relative z-10">
                     <i data-lucide="trending-down" class="w-5 h-5"></i>
@@ -224,7 +234,7 @@ function renderSummaryCards(income, expense, balance, savings) {
 // Função responsável por desenhar a lista de transações recentes na tabela do Dashboard
 function renderTransactions() {
     const tbody = document.getElementById('transactions-list');
-    
+
     if (appData.transactions.length === 0) {
         tbody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-slate-500">Nenhuma transação encontrada. Comece a adicionar!</td></tr>`;
         return;
@@ -300,6 +310,23 @@ window.openEditModal = function (id) {
     document.getElementById('edit-form-desc').value = tx.description;
     document.getElementById('edit-form-amount').value = tx.amount;
     document.getElementById('edit-form-date').value = tx.date;
+
+    const editGoalSelectorWrapper = document.getElementById('edit-goal-selector-wrapper');
+    const editCategoryWrapper = document.getElementById('edit-form-category-wrapper');
+    const editDescWrapper = document.getElementById('edit-form-desc-wrapper');
+
+    if (tx.type === 'goal') {
+        if (editGoalSelectorWrapper) editGoalSelectorWrapper.classList.remove('hidden');
+        if (editCategoryWrapper) editCategoryWrapper.classList.add('hidden');
+        if (editDescWrapper) editDescWrapper.classList.add('hidden'); // Oculta na Meta
+        updateEditGoalOptions();
+        const editGoalSelect = document.getElementById('edit-form-goal-select');
+        if (editGoalSelect) editGoalSelect.value = tx.goalId;
+    } else {
+        if (editGoalSelectorWrapper) editGoalSelectorWrapper.classList.add('hidden');
+        if (editCategoryWrapper) editCategoryWrapper.classList.remove('hidden');
+        if (editDescWrapper) editDescWrapper.classList.remove('hidden');
+    }
 
     // Força a atualização da lista de categorias dependendo se é Receita ou Despesa
     if (window.setEditType) {
@@ -448,7 +475,7 @@ function renderGoalsEditList() {
             </div>
         </div>
     `).join('');
-// Atualiza o Progresso e exibe novamente a interface
+    // Atualiza o Progresso e exibe novamente a interface
 }
 
 // Abre o modal de edição de metas
@@ -457,12 +484,12 @@ window.openEditGoalModal = function (id) {
     if (!goal) return;
 
     editingGoalId = id; // Marca qual meta estamos editando
-    
+
     // Preenche os dados atuais no modal
     document.getElementById('edit-goal-name').value = goal.name;
     document.getElementById('edit-goal-target').value = goal.target;
     document.getElementById('edit-goal-icon').value = goal.icon;
-    
+
     // Mostra o modal (removendo a classe 'hidden' do TailwindCSS)
     document.getElementById('edit-goal-modal').classList.remove('hidden');
 }
@@ -475,9 +502,12 @@ window.closeEditGoalModal = function () {
 
 // Deleta uma meta (disparado pelo botão da lixeira)
 window.deleteGoal = function (id) {
-    if (confirm('Remover esta meta?')) {
-        // Remove a meta retendo apenas as que têm o ID diferente
+    if (confirm('Ao excluir esta meta, todos os lançamentos realizados para ela também desaparecerão do Dashboard e o valor será redirecionado para o Saldo da conta.')) {
+        // Remove a meta
         appData.goals = appData.goals.filter(g => g.id !== id);
+        // Remove também todos os lançamentos vinculados a essa meta
+        appData.transactions = appData.transactions.filter(t => !(t.type === 'goal' && t.goalId === id));
+
         saveData();
         updateDashboard();
     }
@@ -490,7 +520,7 @@ function renderCharts() {
 
     // --- Lógica Gráfico de Pizza (Gastos por Categoria) ---
     const expenses = appData.transactions.filter(t => t.type === 'expense');
-    
+
     // Agrupa os gastos pelo nome da categoria somando seus valores. Ficará como: { "Alimentação": 500, "Lazer": 150 }
     const expensesByCategory = expenses.reduce((acc, curr) => {
         acc[curr.category] = (acc[curr.category] || 0) + curr.amount;
@@ -542,14 +572,14 @@ function renderCharts() {
         });
     }
 
-    // --- Lógica Gráfico de Barras (Receitas vs Despesas Mensais) ---
-    // Agrupa todos os valores por mês. { "2024-03": { Receitas: 1000, Despesas: 500 } }
+    // Agrupa todos os valores por mês. { "2024-03": { Receitas: 1000, Despesas: 500, Metas: 200 } }
     const monthlyFlowMap = appData.transactions.reduce((acc, curr) => {
         const month = curr.date.substring(0, 7); // Pega apenas AAAA-MM
-        if (!acc[month]) acc[month] = { name: month, Receitas: 0, Despesas: 0 };
-        
+        if (!acc[month]) acc[month] = { name: month, Receitas: 0, Despesas: 0, Metas: 0 };
+
         if (curr.type === 'income') acc[month].Receitas += curr.amount;
-        else acc[month].Despesas += curr.amount;
+        else if (curr.type === 'expense') acc[month].Despesas += curr.amount;
+        else if (curr.type === 'goal') acc[month].Metas += curr.amount;
         return acc;
     }, {});
 
@@ -592,6 +622,13 @@ function renderCharts() {
                         backgroundColor: '#f43f5e',
                         borderRadius: { topLeft: 4, topRight: 4 },
                         barThickness: 12
+                    },
+                    {
+                        label: 'Metas',
+                        data: monthlyFlow.map(d => d.Metas),
+                        backgroundColor: '#8b5cf6',
+                        borderRadius: { topLeft: 4, topRight: 4 },
+                        barThickness: 12
                     }
                 ]
             },
@@ -628,6 +665,164 @@ function renderCharts() {
     }
 }
 
+// Novo gráfico de Controle Anual com Filtros
+function renderYearlyChart() {
+    const isDark = appData.settings && appData.settings.theme === 'dark';
+    const gridColor = isDark ? '#334155' : '#e2e8f0';
+    const textColor = isDark ? '#cbd5e1' : '#64748b';
+
+    const year = appData.selectedYear || new Date().getFullYear();
+    const monthlyData = Array(12).fill(0).map((_, i) => ({ month: i + 1, total: 0 }));
+
+    appData.transactions.forEach(t => {
+        const tDate = new Date(t.date);
+        if (tDate.getFullYear() === year) {
+            const m = tDate.getMonth();
+            if (t.type === 'income') monthlyData[m].total += t.amount;
+            else if (t.type === 'expense' || t.type === 'goal') monthlyData[m].total -= t.amount;
+        }
+    });
+
+    const labels = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    const dataValues = monthlyData.map(d => d.total);
+
+    if (yearlyChartInstance) yearlyChartInstance.destroy();
+
+    const ctx = document.getElementById('yearlyChart').getContext('2d');
+    yearlyChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Saldo Mensal',
+                data: dataValues,
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 4,
+                pointBackgroundColor: '#3b82f6'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    grid: { color: gridColor, drawBorder: false },
+                    ticks: { color: textColor, font: { size: 10 } }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: textColor, font: { size: 10 } }
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function (context) { return 'Saldo: ' + formatCurrency(context.raw); }
+                    }
+                }
+            }
+        }
+    });
+
+    // Atualiza o texto do ano no UI
+    const yearDisplay = document.getElementById('yearly-chart-year-display');
+    if (yearDisplay) yearDisplay.innerText = year;
+}
+
+// Muda o ano do filtro do gráfico anual
+window.changeYear = function (offset) {
+    if (!appData.selectedYear) appData.selectedYear = new Date().getFullYear();
+    appData.selectedYear += offset;
+    updateDashboard();
+}
+
+// Renderiza a lista de Gastos Recorrentes
+function renderRecurringList() {
+    const container = document.getElementById('recurring-list');
+    if (!container) return;
+
+    if (!appData.recurringTransactions || appData.recurringTransactions.length === 0) {
+        container.innerHTML = `<p class="text-sm text-slate-500">Nenhum gasto recorrente cadastrado.</p>`;
+        return;
+    }
+
+    container.innerHTML = appData.recurringTransactions.map(r => `
+        <div class="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-700/50">
+            <div>
+                <p class="font-semibold text-slate-800 dark:text-slate-100">${r.description}</p>
+                <p class="text-xs text-slate-500">${formatCurrency(r.amount)} - Dia ${r.day || '1'}</p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="applyRecurring('${r.id}')" class="p-2 text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 rounded-lg" title="Aplicar este mês">
+                    <i data-lucide="play" class="w-4 h-4"></i>
+                </button>
+                <button onclick="deleteRecurring('${r.id}')" class="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+    `).join('');
+    lucide.createIcons();
+}
+
+// Adiciona um novo gasto recorrente
+window.addRecurring = function () {
+    const desc = document.getElementById('recurring-desc').value;
+    const amount = parseFloat(document.getElementById('recurring-amount').value);
+    const day = parseInt(document.getElementById('recurring-day').value) || 1;
+
+    if (!desc || isNaN(amount)) return;
+
+    appData.recurringTransactions.push({
+        id: 'r' + Math.random().toString(36).substr(2, 9),
+        description: desc,
+        amount,
+        day,
+        type: 'expense'
+    });
+
+    saveData();
+    updateDashboard();
+
+    document.getElementById('recurring-desc').value = '';
+    document.getElementById('recurring-amount').value = '';
+}
+
+// Deleta um gasto recorrente
+window.deleteRecurring = function (id) {
+    appData.recurringTransactions = appData.recurringTransactions.filter(r => r.id !== id);
+    saveData();
+    updateDashboard();
+}
+
+// Aplica um gasto recorrente como transação real no mês atual
+window.applyRecurring = function (id) {
+    const rec = appData.recurringTransactions.find(r => r.id === id);
+    if (!rec) return;
+
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(rec.day).padStart(2, '0')}`;
+
+    const newTx = {
+        id: Math.random().toString(36).substr(2, 9),
+        description: `[Fixo] ${rec.description}`,
+        amount: rec.amount,
+        type: 'expense',
+        category: 'Outros', // Categoria padrão para fixos
+        date: dateStr
+    };
+
+    appData.transactions.unshift(newTx);
+    saveData();
+    updateDashboard();
+    alert('Gasto recorrente aplicado com sucesso!');
+}
+
 // NAVEGAÇÃO ENTRE AS ABAS
 // Alterna a visualização entre páginas (Dashboard, Metas, Configurações, Perfil)
 function switchView(viewId) {
@@ -639,7 +834,7 @@ function switchView(viewId) {
         el.classList.add('hidden');
         el.classList.remove('view-content'); // Reseta a animação
     });
-    
+
     // Exibe apenas a página solicitada
     const targetView = document.getElementById(viewId);
     targetView.classList.remove('hidden');
@@ -685,13 +880,41 @@ document.addEventListener('DOMContentLoaded', () => {
     const formCategoryWrapper = document.getElementById('form-category-wrapper');
     const form = document.getElementById('transaction-form');
 
-    // Popula o select de metas com as metas existentes em appData
-    const updateGoalOptions = () => {
+    window.updateGoalOptions = () => {
+        const formGoalSelect = document.getElementById('form-goal-select');
+        const btnGoal = document.getElementById('btn-type-goal');
         if (!formGoalSelect) return;
-        if (appData.goals.length === 0) {
+
+        // Sempre exibe o botão conforme solicitado pelo usuário
+        if (btnGoal) {
+            btnGoal.classList.remove('hidden');
+        }
+
+        const hasGoals = appData.goals && appData.goals.length > 0;
+        if (!hasGoals) {
             formGoalSelect.innerHTML = `<option value="">Nenhuma meta cadastrada</option>`;
         } else {
             formGoalSelect.innerHTML = appData.goals.map(g =>
+                `<option value="${g.id}">${g.name} (${formatCurrencyCompact(g.current)} / ${formatCurrencyCompact(g.target)})</option>`
+            ).join('');
+        }
+    };
+
+    window.updateEditGoalOptions = () => {
+        const editFormGoalSelect = document.getElementById('edit-form-goal-select');
+        const btnEditGoal = document.getElementById('edit-btn-type-goal');
+        if (!editFormGoalSelect) return;
+
+        // Sempre exibe o botão conforme solicitado pelo usuário
+        if (btnEditGoal) {
+            btnEditGoal.classList.remove('hidden');
+        }
+
+        const hasGoals = appData.goals && appData.goals.length > 0;
+        if (!hasGoals) {
+            editFormGoalSelect.innerHTML = `<option value="">Nenhuma meta cadastrada</option>`;
+        } else {
+            editFormGoalSelect.innerHTML = appData.goals.map(g =>
                 `<option value="${g.id}">${g.name} (${formatCurrencyCompact(g.current)} / ${formatCurrencyCompact(g.target)})</option>`
             ).join('');
         }
@@ -708,6 +931,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const inactiveBtn = 'flex-1 py-1.5 rounded-lg text-sm font-semibold transition-all shadow-sm text-slate-500 hover:text-slate-700 bg-transparent border border-transparent shadow-none';
 
     const setType = (type) => {
+        // Validação: Não permite selecionar 'Meta' se não houver metas
+        if (type === 'goal' && (!appData.goals || appData.goals.length === 0)) {
+            alert('Você precisa criar uma meta primeiro no menu "Metas" para selecionar este tipo.');
+            return;
+        }
+
         currentType = type;
 
         // Reseta todos os botões primeiro
@@ -724,17 +953,17 @@ document.addEventListener('DOMContentLoaded', () => {
             btnGoal.className = 'flex-1 py-1.5 rounded-lg text-sm font-semibold transition-all shadow-sm bg-white dark:bg-slate-700 text-violet-600 dark:text-violet-400 border border-slate-200 dark:border-slate-600';
         }
 
-        // Mostra/oculta o seletor de metas, a categoria e o campo de descrição
+        // Mostra/oculta o seletor de metas e a categoria
         const descWrapper = document.getElementById('form-desc-wrapper');
         if (type === 'goal') {
             goalSelectorWrapper.classList.remove('hidden');
             formCategoryWrapper.classList.add('hidden');
-            if (descWrapper) descWrapper.classList.add('hidden'); // Oculta descrição na Meta
+            if (descWrapper) descWrapper.classList.add('hidden'); // Oculta na Meta
             updateGoalOptions(); // Garante que as metas estejam atualizadas
         } else {
             goalSelectorWrapper.classList.add('hidden');
             formCategoryWrapper.classList.remove('hidden');
-            if (descWrapper) descWrapper.classList.remove('hidden'); // Mostra descrição para outros tipos
+            if (descWrapper) descWrapper.classList.remove('hidden');
             updateCategories();
         }
     };
@@ -813,46 +1042,84 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.updateEditTypeUI = () => {
         if (!btnEditIncome) return;
+        const btnEditGoal = document.getElementById('edit-btn-type-goal');
+
+        btnEditIncome.className = "flex-1 py-1.5 rounded-lg text-sm font-semibold transition-all shadow-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 bg-transparent border border-transparent shadow-none";
+        btnEditExpense.className = "flex-1 py-1.5 rounded-lg text-sm font-semibold transition-all shadow-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 bg-transparent border border-transparent shadow-none";
+        if (btnEditGoal) btnEditGoal.className = "flex-1 py-1.5 rounded-lg text-sm font-semibold transition-all shadow-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 bg-transparent border border-transparent shadow-none";
+
         if (currentEditType === 'income') {
             btnEditIncome.className = "flex-1 py-1.5 rounded-lg text-sm font-semibold transition-all shadow-sm bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 border border-slate-200 dark:border-slate-600";
-            btnEditExpense.className = "flex-1 py-1.5 rounded-lg text-sm font-semibold transition-all shadow-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 bg-transparent border border-transparent shadow-none";
-        } else {
+        } else if (currentEditType === 'expense') {
             btnEditExpense.className = "flex-1 py-1.5 rounded-lg text-sm font-semibold transition-all shadow-sm bg-white dark:bg-slate-700 text-rose-600 dark:text-rose-400 border border-slate-200 dark:border-slate-600";
-            btnEditIncome.className = "flex-1 py-1.5 rounded-lg text-sm font-semibold transition-all shadow-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 bg-transparent border border-transparent shadow-none";
+        } else if (currentEditType === 'goal') {
+            if (btnEditGoal) btnEditGoal.className = "flex-1 py-1.5 rounded-lg text-sm font-semibold transition-all shadow-sm bg-white dark:bg-slate-700 text-violet-600 dark:text-violet-400 border border-slate-200 dark:border-slate-600";
         }
     };
 
     window.setEditType = (type) => {
+        // Validação: Não permite selecionar 'Meta' se não houver metas
+        if (type === 'goal' && (!appData.goals || appData.goals.length === 0)) {
+            alert('Você precisa criar uma meta primeiro no menu "Metas" para selecionar este tipo.');
+            return;
+        }
+
         currentEditType = type;
+
+        const editGoalSelectorWrapper = document.getElementById('edit-goal-selector-wrapper');
+        const editCategoryWrapper = document.getElementById('edit-form-category-wrapper');
+        const editDescWrapper = document.getElementById('edit-form-desc-wrapper');
+
+        if (type === 'goal') {
+            if (editGoalSelectorWrapper) editGoalSelectorWrapper.classList.remove('hidden');
+            if (editCategoryWrapper) editCategoryWrapper.classList.add('hidden');
+            if (editDescWrapper) editDescWrapper.classList.add('hidden'); // Oculta na Meta
+            updateEditGoalOptions();
+        } else {
+            if (editGoalSelectorWrapper) editGoalSelectorWrapper.classList.add('hidden');
+            if (editCategoryWrapper) editCategoryWrapper.classList.remove('hidden');
+            if (editDescWrapper) editDescWrapper.classList.remove('hidden');
+            window.updateEditCategories();
+        }
+
         window.updateEditTypeUI();
-        window.updateEditCategories();
     };
 
     if (btnEditIncome && btnEditExpense) {
         btnEditIncome.addEventListener('click', () => setEditType('income'));
         btnEditExpense.addEventListener('click', () => setEditType('expense'));
+        const btnEditGoal = document.getElementById('edit-btn-type-goal');
+        if (btnEditGoal) btnEditGoal.addEventListener('click', () => setEditType('goal'));
     }
 
     if (editForm) {
         editForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            const desc = document.getElementById('edit-form-desc').value;
             const amount = parseFloat(document.getElementById('edit-form-amount').value);
             const date = document.getElementById('edit-form-date').value;
-            const category = selectEditCategory.value;
 
-            if (!desc || isNaN(amount) || !editingTxId) return;
+            if (isNaN(amount) || !editingTxId) return;
 
             const index = appData.transactions.findIndex(t => t.id === editingTxId);
             if (index !== -1) {
-                appData.transactions[index] = {
-                    ...appData.transactions[index],
-                    description: desc,
-                    amount,
-                    type: currentEditType,
-                    category,
-                    date
-                };
+                let updatedTx = { ...appData.transactions[index], amount, date, type: currentEditType };
+
+                if (currentEditType === 'goal') {
+                    const selectedGoalId = document.getElementById('edit-form-goal-select').value;
+                    const selectedGoal = appData.goals.find(g => g.id === selectedGoalId);
+                    updatedTx.description = selectedGoal ? `Aporte → ${selectedGoal.name}` : 'Aporte em Meta';
+                    updatedTx.goalId = selectedGoalId;
+                    updatedTx.category = 'Meta';
+                } else {
+                    const desc = document.getElementById('edit-form-desc').value;
+                    const category = selectEditCategory.value;
+                    if (!desc) return;
+                    updatedTx.description = desc;
+                    updatedTx.category = category;
+                    updatedTx.goalId = null;
+                }
+
+                appData.transactions[index] = updatedTx;
                 saveData();
                 updateDashboard();
                 closeEditModal();
@@ -938,7 +1205,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 user: { name: '' },
                 settings: { theme: currentTheme },
                 transactions: [],
-                goals: []
+                goals: [],
+                recurringTransactions: [],
+                selectedYear: new Date().getFullYear()
             };
 
             // Limpa o campo de nome no perfil para que o usuário possa inserir um novo
@@ -946,10 +1215,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Persiste o estado zerado e atualiza toda a interface
             saveData();
+
+            // Redireciona para o Dashboard primeiro para garantir que os elementos estejam visíveis
+            switchView('view-dashboard');
             updateDashboard();
 
-            // Redireciona para o Dashboard para o usuário ver o estado limpo
-            switchView('view-dashboard');
             alert('Todos os dados foram apagados com sucesso!');
         }
     });
