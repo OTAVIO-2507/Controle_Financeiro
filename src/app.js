@@ -119,7 +119,6 @@ function updateDashboard() {
     renderYearlyChart();
     renderGoalsDashboard();
     renderGoalsEditList();
-    renderRecurringList();
     updateGoalOptions();
     updateEditGoalOptions();
     if (window.updateFilterCategories) window.updateFilterCategories();
@@ -757,89 +756,7 @@ window.changeYear = function (offset) {
     updateDashboard();
 }
 
-// Renderiza a lista de Gastos Recorrentes
-function renderRecurringList() {
-    const container = document.getElementById('recurring-list');
-    if (!container) return;
 
-    if (!appData.recurringTransactions || appData.recurringTransactions.length === 0) {
-        container.innerHTML = `<p class="text-sm text-slate-500">Nenhum gasto recorrente cadastrado.</p>`;
-        return;
-    }
-
-    container.innerHTML = appData.recurringTransactions.map(r => `
-        <div class="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-700/50">
-            <div>
-                <p class="font-semibold text-slate-800 dark:text-slate-100">${r.description}</p>
-                <p class="text-xs text-slate-500">${formatCurrency(r.amount)} - ${r.category} - Dia ${r.day || '1'}</p>
-            </div>
-            <div class="flex gap-2">
-                <button onclick="applyRecurring('${r.id}')" class="p-2 text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 rounded-lg" title="Aplicar este mês">
-                    <i data-lucide="play" class="w-4 h-4"></i>
-                </button>
-                <button onclick="deleteRecurring('${r.id}')" class="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg">
-                    <i data-lucide="trash-2" class="w-4 h-4"></i>
-                </button>
-            </div>
-        </div>
-    `).join('');
-    lucide.createIcons();
-}
-
-// Adiciona um novo gasto recorrente
-window.addRecurring = function () {
-    const desc = document.getElementById('recurring-desc').value;
-    const amount = parseFloat(document.getElementById('recurring-amount').value);
-    const day = parseInt(document.getElementById('recurring-day').value) || 1;
-    const category = document.getElementById('recurring-category').value;
-
-    if (!desc || isNaN(amount)) return;
-
-    appData.recurringTransactions.push({
-        id: 'r' + Math.random().toString(36).substr(2, 9),
-        description: desc,
-        amount,
-        day,
-        category,
-        type: 'expense'
-    });
-
-    saveData();
-    updateDashboard();
-
-    document.getElementById('recurring-desc').value = '';
-    document.getElementById('recurring-amount').value = '';
-}
-
-// Deleta um gasto recorrente
-window.deleteRecurring = function (id) {
-    appData.recurringTransactions = appData.recurringTransactions.filter(r => r.id !== id);
-    saveData();
-    updateDashboard();
-}
-
-// Aplica um gasto recorrente como transação real no mês atual
-window.applyRecurring = function (id) {
-    const rec = appData.recurringTransactions.find(r => r.id === id);
-    if (!rec) return;
-
-    const today = new Date();
-    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(rec.day).padStart(2, '0')}`;
-
-    const newTx = {
-        id: Math.random().toString(36).substr(2, 9),
-        description: `[Fixo] ${rec.description}`,
-        amount: rec.amount,
-        type: 'expense',
-        category: rec.category || 'Outros', // Categoria padrão para fixos
-        date: dateStr
-    };
-
-    appData.transactions.unshift(newTx);
-    saveData();
-    updateDashboard();
-    alert('Gasto recorrente aplicado com sucesso!');
-}
 
 // NAVEGAÇÃO ENTRE AS ABAS
 // Alterna a visualização entre páginas (Dashboard, Metas, Configurações, Perfil)
@@ -973,15 +890,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Mostra/oculta o seletor de metas e a categoria
         const descWrapper = document.getElementById('form-desc-wrapper');
+        const recurringToggleWrapper = document.getElementById('recurring-toggle-wrapper');
+        const recurringOptionsWrapper = document.getElementById('recurring-options-wrapper');
+        const formRecurring = document.getElementById('form-recurring');
+        
         if (type === 'goal') {
             goalSelectorWrapper.classList.remove('hidden');
             formCategoryWrapper.classList.add('hidden');
             if (descWrapper) descWrapper.classList.add('hidden'); // Oculta na Meta
+            if (recurringToggleWrapper) recurringToggleWrapper.classList.add('hidden');
+            if (recurringOptionsWrapper) recurringOptionsWrapper.classList.add('hidden');
+            if (formRecurring) formRecurring.checked = false;
             updateGoalOptions(); // Garante que as metas estejam atualizadas
         } else {
             goalSelectorWrapper.classList.add('hidden');
             formCategoryWrapper.classList.remove('hidden');
             if (descWrapper) descWrapper.classList.remove('hidden');
+            if (recurringToggleWrapper) recurringToggleWrapper.classList.remove('hidden');
             updateCategories();
         }
     };
@@ -989,6 +914,18 @@ document.addEventListener('DOMContentLoaded', () => {
     btnIncome.addEventListener('click', () => setType('income'));
     btnExpense.addEventListener('click', () => setType('expense'));
     btnGoal.addEventListener('click', () => setType('goal'));
+
+    const formRecurringCheck = document.getElementById('form-recurring');
+    if (formRecurringCheck) {
+        formRecurringCheck.addEventListener('change', (e) => {
+            const wrapper = document.getElementById('recurring-options-wrapper');
+            if (e.target.checked) {
+                wrapper.classList.remove('hidden');
+            } else {
+                wrapper.classList.add('hidden');
+            }
+        });
+    }
 
     setType('expense');
     document.getElementById('form-date').value = new Date().toISOString().split('T')[0];
@@ -1000,11 +937,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (isNaN(amount) || amount <= 0) return;
 
-        let newTx;
+        const isRecurring = document.getElementById('form-recurring').checked;
+        const installmentsStr = document.getElementById('form-recurring-installments').value;
+        const installments = isRecurring && installmentsStr ? parseInt(installmentsStr) : 1;
+        const frequency = document.getElementById('form-recurring-frequency').value;
 
         if (currentType === 'goal') {
-            // --- Lógica de destinação para Meta ---
-            // Na Meta, a descrição é gerada automaticamente a partir do nome da meta selecionada
             const selectedGoalId = formGoalSelect.value;
             if (!selectedGoalId) {
                 alert('Selecione uma meta para destinar o valor!');
@@ -1012,7 +950,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const selectedGoal = appData.goals.find(g => g.id === selectedGoalId);
             const autoDesc = selectedGoal ? `Aporte → ${selectedGoal.name}` : 'Aporte em Meta';
-            newTx = {
+            
+            const newTx = {
                 id: Math.random().toString(36).substr(2, 9),
                 description: autoDesc,
                 amount,
@@ -1021,27 +960,49 @@ document.addEventListener('DOMContentLoaded', () => {
                 category: 'Meta',
                 date
             };
+            appData.transactions.unshift(newTx);
+
         } else {
             const desc = document.getElementById('form-desc').value;
             if (!desc) return;
-            // --- Lógica padrão: Receita ou Despesa ---
             const category = selectCategory.value;
-            newTx = {
-                id: Math.random().toString(36).substr(2, 9),
-                description: desc,
-                amount,
-                type: currentType,
-                category,
-                date
-            };
+            
+            let [y, m, d] = date.split('-').map(Number);
+            
+            for (let i = 0; i < installments; i++) {
+                let currentDesc = installments > 1 ? `${desc} (${i + 1}/${installments})` : desc;
+                
+                let txDateObj = new Date(y, m - 1, d);
+                if (frequency === 'monthly') {
+                    txDateObj.setMonth(txDateObj.getMonth() + i);
+                } else if (frequency === 'weekly') {
+                    txDateObj.setDate(txDateObj.getDate() + i * 7);
+                } else if (frequency === 'yearly') {
+                    txDateObj.setFullYear(txDateObj.getFullYear() + i);
+                }
+                
+                let txDateStr = `${txDateObj.getFullYear()}-${String(txDateObj.getMonth() + 1).padStart(2, '0')}-${String(txDateObj.getDate()).padStart(2, '0')}`;
+                
+                const newTx = {
+                    id: Math.random().toString(36).substr(2, 9),
+                    description: currentDesc,
+                    amount,
+                    type: currentType,
+                    category,
+                    date: txDateStr
+                };
+                appData.transactions.unshift(newTx);
+            }
         }
 
-        appData.transactions.unshift(newTx);
         saveData();
         updateDashboard();
 
         document.getElementById('form-desc').value = '';
         document.getElementById('form-amount').value = '';
+        document.getElementById('form-recurring').checked = false;
+        document.getElementById('recurring-options-wrapper').classList.add('hidden');
+        document.getElementById('form-recurring-installments').value = '';
     });
 
     // Edit Transaction Modal Setup
@@ -1224,7 +1185,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 settings: { theme: currentTheme },
                 transactions: [],
                 goals: [],
-                recurringTransactions: [],
                 selectedYear: new Date().getFullYear()
             };
 
@@ -1247,12 +1207,7 @@ document.addEventListener('DOMContentLoaded', () => {
         alert('Aqui seria a função de logout!');
     });
 
-    // 6°. Configura o seletor de categorias para gastos recorrentes
-    const recurringCategorySelect = document.getElementById('recurring-category');
-    if (recurringCategorySelect) {
-        const expenseCats = ['Alimentação', 'Moradia', 'Trabalho', 'Transporte', 'Saúde', 'Lazer', 'Compras', 'Outros'];
-        recurringCategorySelect.innerHTML = expenseCats.map(c => `<option value="${c}">${c}</option>`).join('');
-    }
+
 
     // 7°. Filtros de Transações
     const filterSearch = document.getElementById('filter-search');

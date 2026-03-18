@@ -280,6 +280,32 @@
                                 </select>
                             </div>
 
+                            <div id="recurring-toggle-wrapper" class="flex items-center justify-between bg-slate-100/50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-200 dark:border-slate-700/50 mt-4">
+                                <label for="form-recurring" class="text-sm font-semibold text-slate-700 dark:text-slate-300 cursor-pointer flex items-center gap-2">
+                                    <i data-lucide="repeat" class="w-4 h-4"></i>
+                                    Transação Recorrente?
+                                </label>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                  <input type="checkbox" id="form-recurring" class="sr-only peer">
+                                  <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-yellow-400"></div>
+                                </label>
+                            </div>
+
+                            <div id="recurring-options-wrapper" class="hidden grid grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-800/30 p-3 rounded-xl border border-slate-200 dark:border-slate-700/50 mt-2">
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 ml-1 tracking-wide">Quantas vezes?</label>
+                                    <input type="number" id="form-recurring-installments" min="2" max="120" placeholder="Ex: 12" class="w-full bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-all shadow-sm" />
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 ml-1 tracking-wide">Frequência</label>
+                                    <select id="form-recurring-frequency" class="w-full bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-all shadow-sm">
+                                        <option value="monthly">Mensal</option>
+                                        <option value="weekly">Semanal</option>
+                                        <option value="yearly">Anual</option>
+                                    </select>
+                                </div>
+                            </div>
+
                             <button type="submit" class="w-full btn-primary mt-6 py-3">
                                 <i data-lucide="send" class="w-4 h-4"></i>
                                 Registrar Transação
@@ -287,44 +313,7 @@
                         </form>
                     </div>
 
-                    <!-- Gasto Recorrente (Gastos Fixos Mensais) -->
-                    <div class="card">
-                        <h3 class="font-semibold text-lg text-slate-800 dark:text-slate-100 mb-1">
-                            Gasto Recorrente
-                        </h3>
-                        <p class="text-xs text-slate-500 dark:text-slate-400 mb-5 pb-4 border-b border-slate-200 dark:border-slate-700/50">
-                            Gastos Fixos Mensais
-                        </p>
-                        <div class="space-y-4">
-                            <div>
-                                <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 ml-1 tracking-wide">Descrição</label>
-                                <input type="text" id="recurring-desc" placeholder="Ex: Aluguel" class="w-full bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-all placeholder:text-slate-400 shadow-sm" />
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 ml-1 tracking-wide">Valor (R$)</label>
-                                    <input type="number" id="recurring-amount" placeholder="0,00" step="0.01" class="w-full bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-all placeholder:text-slate-400 shadow-sm" />
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 ml-1 tracking-wide">Dia do Mês</label>
-                                    <input type="number" id="recurring-day" placeholder="5" min="1" max="31" class="w-full bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-all placeholder:text-slate-400 shadow-sm" />
-                                </div>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 ml-1 tracking-wide">Categoria</label>
-                                <select id="recurring-category" class="w-full bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-all shadow-sm">
-                                    <!-- Options updated via JS -->
-                                </select>
-                            </div>
-                            <button onclick="addRecurring()" class="w-full btn-primary py-3">
-                                <i data-lucide="plus" class="w-4 h-4"></i>
-                                Adicionar Fixo
-                            </button>
-                        </div>
-                        <div id="recurring-list" class="mt-6 space-y-3 max-h-64 overflow-y-auto pr-2">
-                            <!-- Populada via JS -->
-                        </div>
-                    </div>
+
 
                 </div>
             </div>
