@@ -251,10 +251,7 @@ function renderTransactions() {
         return;
     }
 
-    const isFiltering = searchValue || categoryFilter !== 'all' || typeFilter !== 'all';
-    const displayList = isFiltering ? filteredTransactions : filteredTransactions.slice(0, 6);
-
-    tbody.innerHTML = displayList.map(t => {
+    tbody.innerHTML = filteredTransactions.map(t => {
         const isIncome = t.type === 'income';
         const isGoal = t.type === 'goal';
 
