@@ -115,6 +115,7 @@ function updateDashboard() {
     // Redesenha todos os componentes chamando suas respectivas funções
     renderSummaryCards(inc, exp, balance, totalSavings);
     renderTransactions();
+    updatePieMonthOptions();
     renderCharts();
     renderYearlyChart();
     renderGoalsDashboard();
@@ -393,6 +394,9 @@ function applyTheme() {
     if (pieChartInstance || barChartInstance) {
         renderCharts();
     }
+    if (yearlyChartInstance) {
+        renderYearlyChart();
+    }
 }
 
 // Função engatilhada pelo botão de lua/sol que alterna entre claro e escuro e salva a preferência
@@ -525,13 +529,83 @@ window.deleteGoal = function (id) {
     }
 }
 
+// Atualiza o select de Mês do gráfico de categorias baseado nas transações disponíveis
+function updatePieMonthOptions() {
+    const select = document.getElementById('pie-filter-month');
+    if (!select) return;
+    
+    const currentVal = select.value;
+    const months = new Set();
+    appData.transactions.forEach(t => {
+        if (t.date) months.add(t.date.substring(0, 7)); // YYYY-MM
+    });
+    
+    // Ordenar do mais recente para o mais antigo
+    const sortedMonths = Array.from(months).sort().reverse();
+    
+    let html = '<option value="all">Todos os Meses</option>';
+    sortedMonths.forEach(m => {
+        const parts = m.split('-');
+        // Mês no zero-index para Date
+        const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1);
+        const mStr = d.toLocaleString('pt-BR', { month: 'short', year: 'numeric' });
+        const label = mStr.charAt(0).toUpperCase() + mStr.slice(1);
+        html += `<option value="${m}">${label}</option>`;
+    });
+    
+    select.innerHTML = html;
+    
+    // Preservar valor anterior se ainda existir
+    if (currentVal && Array.from(select.options).some(o => o.value === currentVal)) {
+        select.value = currentVal;
+    }
+}
+
 // Função responsável por desenhar os gráficos (Gráfico de Pizza e de Barras) usando Chart.js
 function renderCharts() {
-    // Paleta de cores moderna customizada
-    const COLORS = ['#10b981', '#facc15', '#3b82f6', '#f43f5e', '#8b5cf6', '#64748b'];
+    // Paleta de cores amarrada nativamente para manter a consistência visual nos filtros
+    const CATEGORY_COLORS = {
+        'Alimentação': '#fb923c', // orange-400
+        'Moradia': '#2dd4bf',     // teal-400
+        'Trabalho': '#818cf8',    // indigo-400
+        'Compras': '#f472b6',     // pink-400
+        'Lazer': '#c084fc',       // purple-400
+        'Outros': '#38bdf8'       // sky-400
+    };
+
+    // Array de cores vibrantes adicionais para categorias customizadas
+    const EXTRA_COLORS = [
+        '#facc15', // yellow-400
+        '#4ade80', // green-400
+        '#f87171', // red-400
+        '#60a5fa', // blue-400
+        '#a78bfa', // violet-400
+        '#fb7185', // rose-400
+        '#34d399', // emerald-400
+        '#22d3ee', // cyan-400
+        '#a3e635', // lime-400
+        '#fbcfe8'  // pink-200
+    ];
+
+    function getDynamicColor(label) {
+        if (CATEGORY_COLORS[label]) return CATEGORY_COLORS[label];
+        let hash = 0;
+        for (let i = 0; i < label.length; i++) {
+            hash = label.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        return EXTRA_COLORS[Math.abs(hash) % EXTRA_COLORS.length];
+    }
 
     // --- Lógica Gráfico de Pizza (Gastos por Categoria) ---
-    const expenses = appData.transactions.filter(t => t.type === 'expense');
+    const monthFilter = document.getElementById('pie-filter-month')?.value || 'all';
+    const categoryFilter = document.getElementById('pie-filter-category')?.value || 'all';
+
+    const expenses = appData.transactions.filter(t => {
+        if (t.type !== 'expense') return false;
+        if (monthFilter !== 'all' && !t.date.startsWith(monthFilter)) return false;
+        if (categoryFilter !== 'all' && t.category !== categoryFilter) return false;
+        return true;
+    });
 
     // Agrupa os gastos pelo nome da categoria somando seus valores. Ficará como: { "Alimentação": 500, "Lazer": 150 }
     const expensesByCategory = expenses.reduce((acc, curr) => {
@@ -563,7 +637,7 @@ function renderCharts() {
                 labels: pieLabels,
                 datasets: [{
                     data: pieData,
-                    backgroundColor: COLORS,
+                    backgroundColor: pieLabels.map(label => getDynamicColor(label)),
                     borderWidth: 0,
                     borderRadius: 5,
                     cutout: '70%'
