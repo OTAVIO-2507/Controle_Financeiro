@@ -5,7 +5,8 @@ let appData = {
     user: { name: 'Usuário' },
     // Configurações gerais da aplicação (ex: tema claro ou escuro)
     settings: {
-        theme: 'light'
+        theme: 'light',
+        privacyMode: false
     },
     // Lista onde ficarão todas as transações (receitas e despesas)
     transactions: [],
@@ -28,10 +29,16 @@ let yearlyChartInstance = null;
 
 // Funções utilitárias para formatar valores.
 // formatCurrency: Formata um número para o padrão de moeda do Brasil (ex: R$ 1.500,00)
-const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
+const formatCurrency = (val) => {
+    if (appData.settings?.privacyMode) return 'R$ ****';
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
+};
 
 // formatCurrencyCompact: Formata números muito grandes de forma compacta (ex: R$ 1,5 mil)
-const formatCurrencyCompact = (val) => new Intl.NumberFormat('pt-BR', { notation: "compact", style: 'currency', currency: 'BRL' }).format(val);
+const formatCurrencyCompact = (val) => {
+    if (appData.settings?.privacyMode) return 'R$ ****';
+    return new Intl.NumberFormat('pt-BR', { notation: "compact", style: 'currency', currency: 'BRL' }).format(val);
+};
 
 // formatDate: Recebe uma data (ex: 2024-03-15) e formata para um estilo legível (ex: 15 de mar.)
 const formatDate = (dateString) => {
@@ -65,7 +72,10 @@ function loadData() {
         }
     }
     if (!appData.settings) {
-        appData.settings = { theme: 'light' };
+        appData.settings = { theme: 'light', privacyMode: false, budgets: {} };
+    }
+    if (!appData.settings.budgets) {
+        appData.settings.budgets = {};
     }
     if (!appData.recurringTransactions) {
         appData.recurringTransactions = [];
@@ -111,6 +121,8 @@ function updateDashboard() {
 
     // Certifica-se de que as cores (claro ou escuro) estão corretas
     applyTheme();
+    // Atualiza ícone de privacidade baseando-se no estado
+    applyPrivacy();
 
     // Redesenha todos os componentes chamando suas respectivas funções
     renderSummaryCards(inc, exp, balance, totalSavings);
@@ -118,8 +130,10 @@ function updateDashboard() {
     updatePieMonthOptions();
     renderCharts();
     renderYearlyChart();
+    renderBudgetsDashboard();
     renderGoalsDashboard();
     renderGoalsEditList();
+    renderBudgetConfig();
     updateGoalOptions();
     updateEditGoalOptions();
     if (window.updateFilterCategories) window.updateFilterCategories();
@@ -408,6 +422,23 @@ window.toggleTheme = function () {
     lucide.createIcons(); // Recarrega o ícone do botão
 }
 
+// Aplica visualmente o modo privacidade
+function applyPrivacy() {
+    const isPrivacy = appData.settings?.privacyMode;
+    const icon = document.getElementById('privacy-icon');
+    if (icon) {
+        icon.setAttribute('data-lucide', isPrivacy ? 'eye-off' : 'eye');
+    }
+}
+
+// Função engatilhada pelo botão de olho que alterna o modo privacidade
+window.togglePrivacy = function () {
+    if (!appData.settings) appData.settings = {};
+    appData.settings.privacyMode = !appData.settings.privacyMode;
+    saveData();
+    updateDashboard(); // Vai re-renderizar já com o formatter escondendo os valores
+}
+
 // Renderiza o componente lateral de resumo das Metas (Mostrando o Progresso)
 function renderGoalsDashboard() {
     const container = document.getElementById('goals-card');
@@ -492,6 +523,137 @@ function renderGoalsEditList() {
         </div>
     `).join('');
     // Atualiza o Progresso e exibe novamente a interface
+}
+
+// Renderiza a lista de Orçamentos (Limites Mensais)
+const defaultCategories = ['Alimentação', 'Moradia', 'Trabalho', 'Compras', 'Lazer', 'Outros'];
+
+function renderBudgetConfig() {
+    const container = document.getElementById('budget-config-list');
+    if (!container) return;
+    
+    if (!appData.settings.budgets) appData.settings.budgets = {};
+
+    container.innerHTML = defaultCategories.map(cat => {
+        const limit = appData.settings.budgets[cat] || 0;
+        return `
+            <div class="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-100 dark:border-slate-700/50">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 bg-white dark:bg-slate-700 rounded-lg shadow-sm border border-slate-200 dark:border-slate-600">
+                        <i data-lucide="${getCategoryIcon(cat)}" class="w-4 h-4 text-slate-500 dark:text-slate-300"></i>
+                    </div>
+                    <span class="font-medium text-slate-800 dark:text-slate-200 text-sm">${cat}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-slate-500 dark:text-slate-400 text-sm font-semibold">R$</span>
+                    <input type="number" min="0" step="10" value="${limit}" 
+                        onchange="updateBudget('${cat}', this.value)"
+                        class="w-24 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-2 py-1 text-sm text-right focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 shadow-sm transition-all" />
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+window.updateBudget = function(category, value) {
+    if (!appData.settings.budgets) appData.settings.budgets = {};
+    const val = parseFloat(value);
+    appData.settings.budgets[category] = isNaN(val) ? 0 : val;
+    saveData();
+    updateDashboard();
+}
+
+function renderBudgetsDashboard() {
+    const container = document.getElementById('budgets-card');
+    if (!container) return;
+
+    if (!appData.settings.budgets) appData.settings.budgets = {};
+    const activeBudgets = Object.keys(appData.settings.budgets).filter(c => appData.settings.budgets[c] > 0);
+    
+    if (activeBudgets.length === 0) {
+        container.classList.add('hidden');
+        return;
+    }
+    
+    container.classList.remove('hidden');
+
+    const now = new Date();
+    const currentMonthPrefix = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    
+    const spentThisMonth = {};
+    activeBudgets.forEach(c => spentThisMonth[c] = 0);
+    
+    appData.transactions.forEach(t => {
+        if (t.type === 'expense' && t.date.startsWith(currentMonthPrefix) && activeBudgets.includes(t.category)) {
+            spentThisMonth[t.category] += t.amount;
+        }
+    });
+
+    let html = `
+        <div class="pb-4 border-b border-slate-200 dark:border-slate-700/50">
+            <h3 class="font-semibold text-lg text-slate-800 dark:text-white">Orçamentos do Mês</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Acompanhe seus limites de gastos</p>
+        </div>
+        <div class="space-y-5 mt-4">
+    `;
+
+    activeBudgets.forEach(cat => {
+        const limit = appData.settings.budgets[cat];
+        const spent = spentThisMonth[cat];
+        const prog = Math.min(Math.round((spent / limit) * 100), 100);
+        const overBudget = spent > limit;
+        const color = overBudget ? 'rose' : (prog >= 85 ? 'yellow' : 'emerald');
+
+        html += `
+            <div>
+                <div class="flex justify-between text-sm mb-2">
+                    <div class="flex items-center gap-2 text-slate-700 dark:text-slate-100">
+                        <i data-lucide="${getCategoryIcon(cat)}" class="w-4 h-4 text-slate-500"></i>
+                        <span class="font-semibold">${cat}</span>
+                    </div>
+                    <span class="text-slate-500 dark:text-slate-400 font-medium text-xs">
+                        <span class="${overBudget ? 'text-rose-500 font-bold' : 'dark:text-white'}">${formatCurrencyCompact(spent)}</span> / ${formatCurrencyCompact(limit)}
+                    </span>
+                </div>
+                <div class="w-full bg-slate-100 dark:bg-slate-700/50 rounded-full h-2.5 overflow-hidden border border-slate-200 dark:border-slate-600/50 shadow-inner">
+                    <div class="bg-${color}-500 h-full rounded-full transition-all duration-1000 relative" style="width: ${prog}%"></div>
+                </div>
+            </div>
+        `;
+    });
+
+    html += `</div>`;
+    container.innerHTML = html;
+}
+
+// Exporta transações para CSV
+window.exportDataCSV = function() {
+    if (appData.transactions.length === 0) {
+        alert("Sem transações para exportar!");
+        return;
+    }
+
+    const headers = ["Data", "Descrição", "Categoria", "Tipo", "Valor"];
+    
+    // Converte transações para linhas CSV
+    const rows = appData.transactions.map(t => {
+        let tipo = t.type === 'income' ? 'Receita' : (t.type === 'expense' ? 'Despesa' : 'Meta');
+        let valor = t.amount.toString().replace('.', ',');
+        return `${t.date},"${t.description}","${t.category}","${tipo}","${valor}"`;
+    });
+
+    const csvContent = headers.join(",") + "\n" + rows.join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Controle_Financeiro_Export_${new Date().toISOString().split('T')[0]}.csv`;
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 }
 
 // Abre o modal de edição de metas
@@ -649,6 +811,14 @@ function renderCharts() {
                 plugins: {
                     legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, font: { size: 11 }, color: textColor } },
                     tooltip: {
+                        backgroundColor: isDark ? 'rgba(15, 23, 42, 0.9)' : 'rgba(255, 255, 255, 0.9)',
+                        titleColor: isDark ? '#f8fafc' : '#0f172a',
+                        bodyColor: isDark ? '#cbd5e1' : '#64748b',
+                        borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+                        borderWidth: 1,
+                        padding: 12,
+                        cornerRadius: 8,
+                        usePointStyle: true,
                         callbacks: {
                             label: function (context) { return ' ' + formatCurrency(context.raw); }
                         }
@@ -729,7 +899,10 @@ function renderCharts() {
                         ticks: {
                             color: textColor,
                             font: { size: 11 },
-                            callback: function (value) { return 'R$' + (value >= 1000 ? value / 1000 + 'k' : value); }
+                            callback: function (value) { 
+                                if (appData.settings?.privacyMode) return '****';
+                                return 'R$' + (value >= 1000 ? value / 1000 + 'k' : value); 
+                            }
                         }
                     },
                     x: {
@@ -741,6 +914,14 @@ function renderCharts() {
                 plugins: {
                     legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, font: { size: 11 }, color: textColor } },
                     tooltip: {
+                        backgroundColor: isDark ? 'rgba(15, 23, 42, 0.9)' : 'rgba(255, 255, 255, 0.9)',
+                        titleColor: isDark ? '#f8fafc' : '#0f172a',
+                        bodyColor: isDark ? '#cbd5e1' : '#64748b',
+                        borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+                        borderWidth: 1,
+                        padding: 12,
+                        cornerRadius: 8,
+                        usePointStyle: true,
                         callbacks: {
                             label: function (context) { return context.dataset.label + ': ' + formatCurrency(context.raw); }
                         }
@@ -797,7 +978,14 @@ function renderYearlyChart() {
             scales: {
                 y: {
                     grid: { color: gridColor, drawBorder: false },
-                    ticks: { color: textColor, font: { size: 10 } }
+                    ticks: { 
+                        color: textColor, 
+                        font: { size: 10 },
+                        callback: function (value) { 
+                            if (appData.settings?.privacyMode) return '****';
+                            return value;
+                        }
+                    }
                 },
                 x: {
                     grid: { display: false },
@@ -807,6 +995,14 @@ function renderYearlyChart() {
             plugins: {
                 legend: { display: false },
                 tooltip: {
+                    backgroundColor: isDark ? 'rgba(15, 23, 42, 0.9)' : 'rgba(255, 255, 255, 0.9)',
+                    titleColor: isDark ? '#f8fafc' : '#0f172a',
+                    bodyColor: isDark ? '#cbd5e1' : '#64748b',
+                    borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+                    borderWidth: 1,
+                    padding: 12,
+                    cornerRadius: 8,
+                    usePointStyle: true,
                     callbacks: {
                         label: function (context) { return 'Saldo: ' + formatCurrency(context.raw); }
                     }

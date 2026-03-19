@@ -7,12 +7,19 @@
     <title>Controle Financeiro</title>
     <link rel="icon" type="image/svg+xml" href="">
     <link rel="stylesheet" href="src/style.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
             theme: {
+                fontFamily: {
+                    sans: ['Inter', 'sans-serif'],
+                },
                 extend: {
                     colors: {
                         background: '#f8fafc',
@@ -70,8 +77,12 @@
             </div>
 
             <div class="flex items-center gap-3">
-                <button id="nav-theme"
-                    class="p-2.5 bg-white/50 dark:bg-slate-800/50 backdrop-blur-md rounded-full border border-white/60 dark:border-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-white/80 dark:hover:bg-slate-700 transition-all">
+                <button id="nav-privacy" onclick="togglePrivacy()"
+                    class="p-2.5 bg-white/50 dark:bg-slate-800/50 backdrop-blur-md rounded-full border border-white/60 dark:border-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-white/80 dark:hover:bg-slate-700 transition-all" title="Modo Privacidade">
+                    <i id="privacy-icon" data-lucide="eye" class="w-5 h-5"></i>
+                </button>
+                <button id="nav-theme" onclick="toggleTheme()"
+                    class="p-2.5 bg-white/50 dark:bg-slate-800/50 backdrop-blur-md rounded-full border border-white/60 dark:border-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-white/80 dark:hover:bg-slate-700 transition-all" title="Tema">
                     <i id="theme-icon" data-lucide="moon" class="w-5 h-5"></i>
                 </button>
                 <button id="nav-profile"
@@ -218,6 +229,9 @@
                 </div>
 
                 <div class="space-y-6">
+                    <!-- Budgets -->
+                    <div id="budgets-card" class="card space-y-6 hidden"></div>
+
                     <!-- Goals -->
                     <div id="goals-card" class="card space-y-6"></div>
 
@@ -375,23 +389,36 @@
         </main>
 
         <main id="view-config" class="max-w-[1400px] mx-auto space-y-6 hidden">
-            <div class="card max-w-2xl mx-auto">
-                <h2 class="text-2xl font-semibold mb-4 text-slate-800 dark:text-slate-100">Configurações</h2>
-                <div class="space-y-4">
-                    <div
-                        class="flex items-center justify-between p-4 bg-slate-50/50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700/50">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="card">
+                    <h2 class="text-xl font-semibold mb-4 text-slate-800 dark:text-slate-100">Configurações de Dados</h2>
+                    <div class="flex items-center justify-between p-4 bg-slate-50/50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700/50">
                         <div>
                             <p class="font-semibold text-slate-800 dark:text-slate-200">Limpar todos os dados</p>
-                            <p class="text-sm text-slate-500 dark:text-slate-400">Isso apagará todas as transações,
-                                metas e perfil.
-                                Irreversível.</p>
+                            <p class="text-sm text-slate-500 dark:text-slate-400">Isso apagará todas as transações, metas e perfil. Irreversível.</p>
                         </div>
-                        <button id="btn-clear-data"
-                            class="bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-200 dark:hover:bg-rose-500/30 px-4 py-2 rounded-lg font-medium transition-colors">Zerar
-                            Dados</button>
+                        <button id="btn-clear-data" class="bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-200 dark:hover:bg-rose-500/30 px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer">Zerar Dados</button>
                     </div>
-
-
+                    
+                    <div class="flex items-center justify-between p-4 bg-slate-50/50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700/50 mt-4">
+                        <div>
+                            <p class="font-semibold text-slate-800 dark:text-slate-200">Exportar Transações</p>
+                            <p class="text-sm text-slate-500 dark:text-slate-400">Baixe um CSV com 100% dos seus lançamentos.</p>
+                        </div>
+                        <button onclick="exportDataCSV()" class="bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-500/30 px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer flex items-center gap-2">
+                            <i data-lucide="download" class="w-4 h-4"></i> Exportar
+                        </button>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-semibold text-slate-800 dark:text-slate-100">Limites de Orçamento Mensal</h2>
+                        <i data-lucide="shield-alert" class="w-5 h-5 text-yellow-500"></i>
+                    </div>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">Defina um limite de gastos para cada categoria. Deixe 0 para ilimitado.</p>
+                    <div id="budget-config-list" class="space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+                        <!-- Populated by JS -->
+                    </div>
                 </div>
             </div>
         </main>
