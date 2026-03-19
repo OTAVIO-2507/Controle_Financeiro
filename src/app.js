@@ -72,10 +72,16 @@ function loadData() {
         }
     }
     if (!appData.settings) {
-        appData.settings = { theme: 'light', privacyMode: false, budgets: {} };
+        appData.settings = { theme: 'light', privacyMode: false, budgetsByMonth: {} };
     }
-    if (!appData.settings.budgets) {
-        appData.settings.budgets = {};
+    if (!appData.settings.budgetsByMonth) {
+        appData.settings.budgetsByMonth = {};
+        if (appData.settings.budgets) {
+            const now = new Date();
+            const currentMonthPrefix = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+            appData.settings.budgetsByMonth[currentMonthPrefix] = appData.settings.budgets;
+            delete appData.settings.budgets;
+        }
     }
     if (!appData.recurringTransactions) {
         appData.recurringTransactions = [];
@@ -530,12 +536,20 @@ const defaultCategories = ['Alimentação', 'Moradia', 'Trabalho', 'Compras', 'L
 
 function renderBudgetConfig() {
     const container = document.getElementById('budget-config-list');
-    if (!container) return;
+    const monthInput = document.getElementById('budget-config-month');
+    if (!container || !monthInput) return;
     
-    if (!appData.settings.budgets) appData.settings.budgets = {};
+    if (!monthInput.value) {
+        const now = new Date();
+        monthInput.value = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    }
+    const selectedMonth = monthInput.value;
+
+    if (!appData.settings.budgetsByMonth) appData.settings.budgetsByMonth = {};
+    const monthBudgets = appData.settings.budgetsByMonth[selectedMonth] || {};
 
     container.innerHTML = defaultCategories.map(cat => {
-        const limit = appData.settings.budgets[cat] || 0;
+        const limit = monthBudgets[cat] || 0;
         return `
             <div class="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-100 dark:border-slate-700/50">
                 <div class="flex items-center gap-3">
@@ -556,49 +570,76 @@ function renderBudgetConfig() {
 }
 
 window.updateBudget = function(category, value) {
-    if (!appData.settings.budgets) appData.settings.budgets = {};
+    const monthInput = document.getElementById('budget-config-month');
+    if (!monthInput || !monthInput.value) return;
+    const selectedMonth = monthInput.value;
+
+    if (!appData.settings.budgetsByMonth) appData.settings.budgetsByMonth = {};
+    if (!appData.settings.budgetsByMonth[selectedMonth]) appData.settings.budgetsByMonth[selectedMonth] = {};
+    
     const val = parseFloat(value);
-    appData.settings.budgets[category] = isNaN(val) ? 0 : val;
+    appData.settings.budgetsByMonth[selectedMonth][category] = isNaN(val) ? 0 : val;
     saveData();
     updateDashboard();
+}
+
+let customBudgetMonth = null;
+window.changeBudgetDashboardMonth = function(val) {
+    customBudgetMonth = val;
+    renderBudgetsDashboard();
 }
 
 function renderBudgetsDashboard() {
     const container = document.getElementById('budgets-card');
     if (!container) return;
 
-    if (!appData.settings.budgets) appData.settings.budgets = {};
-    const activeBudgets = Object.keys(appData.settings.budgets).filter(c => appData.settings.budgets[c] > 0);
-    
-    if (activeBudgets.length === 0) {
+    if (!appData.settings.budgetsByMonth || Object.keys(appData.settings.budgetsByMonth).length === 0) {
         container.classList.add('hidden');
         return;
     }
     
     container.classList.remove('hidden');
 
-    const now = new Date();
-    const currentMonthPrefix = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-    
+    let selectedMonth = customBudgetMonth;
+    if (!selectedMonth) {
+        let pieMonth = document.getElementById('pie-filter-month')?.value;
+        if (!pieMonth || pieMonth === 'all') {
+            const now = new Date();
+            selectedMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+        } else {
+            selectedMonth = pieMonth;
+        }
+    }
+
+    const monthBudgets = appData.settings.budgetsByMonth[selectedMonth] || {};
+    const activeBudgets = Object.keys(monthBudgets).filter(c => monthBudgets[c] > 0);
+
     const spentThisMonth = {};
     activeBudgets.forEach(c => spentThisMonth[c] = 0);
     
     appData.transactions.forEach(t => {
-        if (t.type === 'expense' && t.date.startsWith(currentMonthPrefix) && activeBudgets.includes(t.category)) {
+        if (t.type === 'expense' && t.date.startsWith(selectedMonth) && activeBudgets.includes(t.category)) {
             spentThisMonth[t.category] += t.amount;
         }
     });
 
     let html = `
-        <div class="pb-4 border-b border-slate-200 dark:border-slate-700/50">
-            <h3 class="font-semibold text-lg text-slate-800 dark:text-white">Orçamentos do Mês</h3>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Acompanhe seus limites de gastos</p>
+        <div class="pb-4 border-b border-slate-200 dark:border-slate-700/50 flex justify-between items-center gap-2 flex-wrap">
+            <div>
+                <h3 class="font-semibold text-lg text-slate-800 dark:text-white">Orçamento do Mês</h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Acompanhe seus limites de gastos</p>
+            </div>
+            <input type="month" value="${selectedMonth}" onchange="changeBudgetDashboardMonth(this.value)" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 cursor-pointer">
         </div>
         <div class="space-y-5 mt-4">
     `;
 
+    if (activeBudgets.length === 0) {
+        html += `<p class="text-sm text-slate-500 dark:text-slate-400 italic text-center py-4">Nenhum limite configurado para este mês.</p>`;
+    }
+
     activeBudgets.forEach(cat => {
-        const limit = appData.settings.budgets[cat];
+        const limit = monthBudgets[cat];
         const spent = spentThisMonth[cat];
         const prog = Math.min(Math.round((spent / limit) * 100), 100);
         const overBudget = spent > limit;
@@ -624,6 +665,7 @@ function renderBudgetsDashboard() {
 
     html += `</div>`;
     container.innerHTML = html;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 // Exporta transações para CSV
@@ -633,16 +675,21 @@ window.exportDataCSV = function() {
         return;
     }
 
-    const headers = ["Data", "Descrição", "Categoria", "Tipo", "Valor"];
+    // Usa ponto-e-vírgula como separador (padrão Excel BR) e BOM UTF-8 para acentos
+    const sep = ";";
+    const headers = ["Data", "Descrição", "Categoria", "Tipo", "Valor (R$)"];
     
-    // Converte transações para linhas CSV
+    // Converte transações para linhas CSV — cada campo em sua própria coluna
     const rows = appData.transactions.map(t => {
         let tipo = t.type === 'income' ? 'Receita' : (t.type === 'expense' ? 'Despesa' : 'Meta');
-        let valor = t.amount.toString().replace('.', ',');
-        return `${t.date},"${t.description}","${t.category}","${tipo}","${valor}"`;
+        let valor = t.amount.toFixed(2).replace('.', ',');
+        let desc = (t.description || '').replace(/"/g, '""');
+        let cat  = (t.category  || '').replace(/"/g, '""');
+        return [t.date, `"${desc}"`, `"${cat}"`, `"${tipo}"`, valor].join(sep);
     });
 
-    const csvContent = headers.join(",") + "\n" + rows.join("\n");
+    const BOM = "\uFEFF"; // BOM UTF-8 — necessário para Excel abrir acentos corretamente
+    const csvContent = BOM + headers.join(sep) + "\n" + rows.join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     

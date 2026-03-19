@@ -81,7 +81,7 @@
                     class="p-2.5 bg-white/50 dark:bg-slate-800/50 backdrop-blur-md rounded-full border border-white/60 dark:border-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-white/80 dark:hover:bg-slate-700 transition-all" title="Modo Privacidade">
                     <i id="privacy-icon" data-lucide="eye" class="w-5 h-5"></i>
                 </button>
-                <button id="nav-theme" onclick="toggleTheme()"
+                <button id="nav-theme"
                     class="p-2.5 bg-white/50 dark:bg-slate-800/50 backdrop-blur-md rounded-full border border-white/60 dark:border-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-white/80 dark:hover:bg-slate-700 transition-all" title="Tema">
                     <i id="theme-icon" data-lucide="moon" class="w-5 h-5"></i>
                 </button>
@@ -411,11 +411,15 @@
                     </div>
                 </div>
                 <div class="card">
-                    <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-xl font-semibold text-slate-800 dark:text-slate-100">Limites de Orçamento Mensal</h2>
+                    <div class="flex items-center justify-between mb-2">
+                        <h2 class="text-xl font-semibold text-slate-800 dark:text-slate-100">Limites de Orçamento</h2>
                         <i data-lucide="shield-alert" class="w-5 h-5 text-yellow-500"></i>
                     </div>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">Defina um limite de gastos para cada categoria. Deixe 0 para ilimitado.</p>
+                    <div class="flex items-center gap-2 mb-4">
+                        <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">Mês:</label>
+                        <input type="month" id="budget-config-month" onchange="renderBudgetConfig()" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400">
+                    </div>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">Defina os limites estipulados para o mês selecionado. Ao checar meses anteriores no painel, o histórico será mantido.</p>
                     <div id="budget-config-list" class="space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
                         <!-- Populated by JS -->
                     </div>
