@@ -1,5 +1,5 @@
 # 💸 Controle Financeiro
-Uma aplicação web para gerenciar e controlar as finanças pessoais. O projeto foi desenvolvido com HTML, CSS, JavaScript e utiliza gráficos para monitoramento visual das receitas e despesas.
+Aplicação web para controle financeiro pessoal, permitindo o gerenciamento de receitas, despesas e metas com visualização em gráficos interativos. O projeto foi desenvolvido com HTML, CSS, JavaScript e utiliza gráficos para monitoramento visual das receitas e despesas.
 
 ## 🌐 Visualize o Projeto:
 
